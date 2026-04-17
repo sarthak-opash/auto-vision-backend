@@ -1,2 +1,8 @@
 venv
 .venv/
+datasets/
+models/
+outputs/
+scipts/
+trainings/
+notebooks/
