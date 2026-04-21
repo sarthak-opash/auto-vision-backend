@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClaim Vision — Project Specification</title>
+<style>
+:root {
+  --navy: #1B3A6B;
+  --blue: #2E75B6;
+  --steel: #4472C4;
+  --teal: #0D7A8A;
+  --green: #1E7E4A;
+  --amber: #D46900;
+  --red: #C0392B;
+  --light: #EBF3FB;
+  --mist: #F5F9FC;
+  --silver: #D6DCE4;
+  --dark: #1e2535;
+  --mid: #4a5568;
+  --gray: #718096;
+  --white: #ffffff;
+  --sidebar-w: 280px;
+  --radius: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--dark);
+  background: #f0f4f8;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--navy);
+  overflow-y: auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+.sidebar-brand {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar-brand h2 {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.sidebar-brand span {
+  display: block;
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.sidebar-nav { padding: 12px 0 24px; flex: 1; }
+
+.nav-section-label {
+  padding: 16px 20px 6px;
+  color: rgba(255,255,255,0.35);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+.nav-item {
+  display: block;
+  padding: 8px 20px;
+  color: rgba(255,255,255,0.72);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+}
+.nav-item:hover { color: #fff; background: rgba(255,255,255,0.07); border-left-color: var(--blue); }
+.nav-item.active { color: #fff; background: rgba(46,117,182,0.25); border-left-color: #63b3ed; }
+.nav-item.sub { padding-left: 32px; font-size: 12px; color: rgba(255,255,255,0.5); }
+.nav-item.sub:hover { color: rgba(255,255,255,0.85); }
+
+/* ── Main Content ── */
+#main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+}
+
+/* ── Hero ── */
+.hero {
+  background: linear-gradient(135deg, var(--navy) 0%, #1a4a8a 50%, #0D7A8A 100%);
+  padding: 80px 60px 70px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px; left: 30%;
+  width: 500px; height: 300px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.03);
+}
+.hero-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.hero h1 {
+  color: #fff;
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+}
+.hero h1 span { color: #63d4e0; }
+.hero-sub {
+  color: rgba(255,255,255,0.75);
+  font-size: 20px;
+  margin-bottom: 40px;
+  font-weight: 300;
+}
+.hero-meta {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.hero-meta-item {
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+}
+.hero-meta-item strong {
+  display: block;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+/* ── Content area ── */
+.content { padding: 48px 60px 80px; max-width: 1100px; }
+
+/* ── Section headings ── */
+.section { margin-bottom: 56px; scroll-margin-top: 24px; }
+
+h2.sec-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid var(--blue);
+}
+h2.sec-title .sec-num {
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+h3.sub-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--blue);
+  margin: 28px 0 12px;
+  padding-left: 12px;
+  border-left: 4px solid var(--teal);
+}
+h4.sub-sub {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--teal);
+  margin: 20px 0 8px;
+}
+
+p { margin-bottom: 14px; color: var(--mid); line-height: 1.75; }
+p:last-child { margin-bottom: 0; }
+
+/* ── Callout boxes ── */
+.callout {
+  background: var(--light);
+  border-left: 5px solid var(--blue);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+.callout.warn { background: #FFF8E6; border-left-color: var(--amber); }
+.callout.danger { background: #FEF0F0; border-left-color: var(--red); }
+.callout.success { background: #EDFAF3; border-left-color: var(--green); }
+.callout-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--blue);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.callout.warn .callout-label { color: var(--amber); }
+.callout.danger .callout-label { color: var(--red); }
+.callout.success .callout-label { color: var(--green); }
+.callout pre {
+  white-space: pre-wrap;
+  font-size: 13px;
+  color: var(--mid);
+  font-family: 'Consolas', 'Courier New', monospace;
+  line-height: 1.6;
+}
+
+/* ── Flow diagram ── */
+.flow-diagram {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.flow-row:last-child { margin-bottom: 0; }
+.flow-box {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.flow-box.highlight { background: var(--teal); border-color: var(--teal); }
+.flow-box.accent { background: var(--blue); border-color: var(--blue); }
+.flow-arrow {
+  color: rgba(255,255,255,0.4);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.flow-label {
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; margin: 20px 0; border-radius: var(--radius); box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+thead tr { background: var(--navy); }
+thead th {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 12px 16px;
+  text-align: left;
+  white-space: nowrap;
+}
+tbody tr:nth-child(even) { background: var(--mist); }
+tbody tr:hover { background: var(--light); }
+tbody td {
+  padding: 11px 16px;
+  font-size: 13.5px;
+  color: var(--mid);
+  border-bottom: 1px solid var(--silver);
+  vertical-align: top;
+}
+td strong { color: var(--dark); }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.badge-green { background: #EDFAF3; color: #1E7E4A; }
+.badge-amber { background: #FFF8E6; color: #D46900; }
+.badge-red { background: #FEF0F0; color: #C0392B; }
+.badge-blue { background: #EBF3FB; color: #2E75B6; }
+
+/* ── Bullet lists ── */
+ul.feature-list { list-style: none; padding: 0; margin: 12px 0; }
+ul.feature-list li {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  color: var(--mid);
+  font-size: 14px;
+  border-bottom: 1px solid rgba(214,220,228,0.4);
+}
+ul.feature-list li:last-child { border-bottom: none; }
+ul.feature-list li::before {
+  content: '▸';
+  color: var(--blue);
+  font-size: 12px;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+ul.feature-list li strong { color: var(--navy); }
+
+ol.steps { list-style: none; counter-reset: steps; padding: 0; margin: 12px 0; }
+ol.steps li {
+  counter-increment: steps;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+ol.steps li::before {
+  content: counter(steps);
+  background: var(--blue);
+  color: #fff;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Code blocks ── */
+.code-block {
+  background: #1e2535;
+  color: #a8dadc;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin: 16px 0;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre;
+}
+.code-block .kw { color: #63b3ed; }
+.code-block .str { color: #68d391; }
+.code-block .cm { color: #718096; font-style: italic; }
+.code-block .nb { color: #fbb6ce; }
+
+/* ── Cards / stat boxes ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.stat-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--blue);
+  text-align: center;
+}
+.stat-card .val {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.stat-card .lbl {
+  font-size: 12px;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+
+/* ── Phase timeline ── */
+.timeline { position: relative; padding-left: 32px; margin: 20px 0; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--blue), var(--teal));
+}
+.tl-item { position: relative; margin-bottom: 32px; }
+.tl-dot {
+  position: absolute;
+  left: -26px; top: 4px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 3px var(--blue);
+}
+.tl-item.phase .tl-dot { background: var(--navy); box-shadow: 0 0 0 3px var(--navy); width: 18px; height: 18px; left: -28px; top: 2px; }
+.tl-header {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+.tl-item.phase .tl-header { font-size: 20px; color: var(--blue); }
+.tl-week {
+  display: inline-block;
+  background: var(--light);
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tl-body { color: var(--mid); font-size: 14px; }
+.tl-tasks { margin-top: 10px; }
+.tl-task {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13.5px;
+  color: var(--mid);
+  border-bottom: 1px dashed rgba(214,220,228,0.5);
+}
+.tl-task:last-child { border-bottom: none; }
+.tl-task::before { content: '✦'; color: var(--teal); font-size: 10px; margin-top: 4px; flex-shrink: 0; }
+
+/* ── Model cards ── */
+.model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+.model-card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1px solid var(--silver);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.model-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.model-card-header {
+  background: linear-gradient(135deg, var(--navy), var(--steel));
+  padding: 14px 18px;
+  color: #fff;
+}
+.model-card-header h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.model-card-header span { font-size: 11px; color: rgba(255,255,255,0.6); }
+.model-card-body { padding: 14px 18px; }
+.model-attr { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid rgba(214,220,228,0.4); }
+.model-attr:last-child { border-bottom: none; }
+.model-attr .key { color: var(--gray); }
+.model-attr .val { color: var(--dark); font-weight: 600; text-align: right; }
+
+/* ── Summary card ── */
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--silver); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); margin: 20px 0; }
+.summary-row { display: contents; }
+.summary-row:nth-child(even) .summary-k,
+.summary-row:nth-child(even) .summary-v { background: var(--mist); }
+.summary-k {
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #fff;
+  border-bottom: 1px solid var(--silver);
+  border-right: 1px solid var(--silver);
+}
+.summary-v {
+  padding: 11px 16px;
+  font-size: 13px;
+  color: var(--mid);
+  background: #fff;
+  border-bottom: 1px solid var(--silver);
+}
+
+/* ── Metric bars ── */
+.metric-item { margin-bottom: 16px; }
+.metric-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+.metric-label span:first-child { color: var(--dark); font-weight: 600; }
+.metric-label span:last-child { color: var(--blue); font-weight: 700; }
+.metric-bar { height: 8px; background: var(--silver); border-radius: 4px; overflow: hidden; }
+.metric-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--blue), var(--teal)); }
+
+/* ── Tech pill grid ── */
+.pill-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.pill {
+  background: var(--light);
+  color: var(--navy);
+  border: 1px solid rgba(46,117,182,0.2);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pill.dark { background: var(--navy); color: #fff; border-color: var(--navy); }
+.pill.teal { background: #E0F5F7; color: var(--teal); border-color: rgba(13,122,138,0.2); }
+
+/* ── Print ── */
+@media print {
+  #sidebar { display: none; }
+  #main { margin-left: 0; }
+  .hero { padding: 40px; }
+  .content { padding: 24px 40px; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  #sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left: 0; }
+  .hero { padding: 40px 24px; }
+  .hero h1 { font-size: 32px; }
+  .content { padding: 32px 24px; }
+  .summary-grid { grid-template-columns: 1fr; }
+}
+
+.menu-btn {
+  display: none;
+  position: fixed;
+  top: 16px; left: 16px;
+  z-index: 200;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+}
+@media (max-width: 900px) { .menu-btn { display: block; } }
+</style>
+</head>
+<body>
+
+<button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <h2>AutoClaim Vision</h2>
+    <span>Project Specification v1.0</span>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="#summary">Project Summary</a>
+    <a class="nav-item" href="#problem">1. Problem Statement</a>
+    <a class="nav-item" href="#solution">2. Solution Overview</a>
+    <a class="nav-item" href="#features">3. Key Features</a>
+
+    <div class="nav-section-label">AI / ML</div>
+    <a class="nav-item" href="#aiml">4. AI/ML Components</a>
+    <a class="nav-item sub" href="#models">Model Architecture</a>
+    <a class="nav-item sub" href="#training">Training Config</a>
+    <a class="nav-item sub" href="#cost-engine">Cost Engine</a>
+    <a class="nav-item sub" href="#fraud">Fraud Detection</a>
+
+    <div class="nav-section-label">Engineering</div>
+    <a class="nav-item" href="#techstack">5. Tech Stack</a>
+    <a class="nav-item" href="#architecture">6. Architecture</a>
+    <a class="nav-item sub" href="#api">REST API</a>
+    <a class="nav-item sub" href="#schema">Database Schema</a>
+
+    <div class="nav-section-label">Delivery</div>
+    <a class="nav-item" href="#devplan">7. Dev Plan — 10 Weeks</a>
+    <a class="nav-item" href="#datasets">8. Datasets</a>
+    <a class="nav-item" href="#metrics">9. Evaluation Metrics</a>
+    <a class="nav-item" href="#demo">10. Demo Strategy</a>
+    <a class="nav-item" href="#future">11. Future / SaaS</a>
+    <a class="nav-item" href="#risks">12. Risk Register</a>
+    <a class="nav-item" href="#skills-map">13. Skills Map</a>
+  </div>
+</nav>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main id="main">
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">🎓 Final Year Intern Project · AI/ML + Computer Vision</div>
+  <h1>AutoClaim <span>Vision</span></h1>
+  <div class="hero-sub">AI-Powered Vehicle Damage Detection &amp; Insurance Cost Estimation System</div>
+  <div class="hero-meta">
+    <div class="hero-meta-item"><strong>10</strong>Weeks Timeline</div>
+    <div class="hero-meta-item"><strong>7</strong>AI/ML Models</div>
+    <div class="hero-meta-item"><strong>30+</strong>Car Parts</div>
+    <div class="hero-meta-item"><strong>8</strong>Damage Classes</div>
+    <div class="hero-meta-item"><strong>SaaS</strong>Ready Architecture</div>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ═══════════════════════════════════════ -->
+<!-- PROJECT SUMMARY CARD -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="summary">
+  <h2 class="sec-title"><span class="sec-num">Overview</span>Project Summary</h2>
+  <div class="card-grid">
+    <div class="stat-card" style="border-top-color:#1B3A6B">
+      <div class="val">10</div><div class="lbl">Week Timeline</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#2E75B6">
+      <div class="val">7</div><div class="lbl">AI/ML Models</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#0D7A8A">
+      <div class="val">30+</div><div class="lbl">Car Part Labels</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#1E7E4A">
+      <div class="val">&lt;3s</div><div class="lbl">Inference Speed</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#D46900">
+      <div class="val">8</div><div class="lbl">Damage Classes</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#4472C4">
+      <div class="val">3</div><div class="lbl">Intern Team Size</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <div class="callout-label">🎯 Core Value Proposition</div>
+    <p style="margin:0">A customer photographs their damaged vehicle. AutoClaim Vision returns a full damage report with localized bounding boxes, severity classifications, affected part names, and a cost estimate — all within seconds. No human assessor required for initial triage.</p>
+  </div>
+
+  <div class="summary-grid" style="margin-top:24px">
+    <div class="summary-row"><div class="summary-k">Project Name</div><div class="summary-v">AutoClaim Vision</div></div>
+    <div class="summary-row"><div class="summary-k">Primary CV Technique</div><div class="summary-v">Instance Segmentation (YOLOv8x-seg)</div></div>
+    <div class="summary-row"><div class="summary-k">Backend</div><div class="summary-v">Python · FastAPI · Celery · PostgreSQL · Redis</div></div>
+    <div class="summary-row"><div class="summary-k">Frontend</div><div class="summary-v">React 18 · TypeScript · Tailwind CSS</div></div>
+    <div class="summary-row"><div class="summary-k">Advanced Concepts</div><div class="summary-v">Multi-view aggregation · Fraud detection · OCR · Cost ML</div></div>
+    <div class="summary-row"><div class="summary-k">Target mAP50</div><div class="summary-v">&gt; 0.75 on damage detection</div></div>
+    <div class="summary-row"><div class="summary-k">SaaS Potential</div><div class="summary-v">High — clear tiered pricing + API-first roadmap</div></div>
+    <div class="summary-row"><div class="summary-k">College Impressiveness</div><div class="summary-v">⭐⭐⭐⭐⭐ — real business problem, production-grade arch</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 1. PROBLEM STATEMENT -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="problem">
+  <h2 class="sec-title"><span class="sec-num">01</span>Problem Statement</h2>
+
+  <h3 class="sub-title">The Insurance Claims Crisis</h3>
+  <p>The global auto insurance industry processes over 250 million claims per year. The traditional process is deeply flawed:</p>
+
+  <ul class="feature-list">
+    <li>A customer files a claim after an accident — form-filling alone takes 30–90 minutes.</li>
+    <li>A field assessor is dispatched physically — typical wait: <strong>3–7 business days</strong>.</li>
+    <li>The assessor manually photographs damage and writes a report — highly subjective, varies by experience.</li>
+    <li>Repair shop quote frequently conflicts with insurer's estimate — disputes delay settlement.</li>
+    <li>Total claims settlement: <strong>2–8 weeks</strong>, causing major customer dissatisfaction and churn.</li>
+  </ul>
+
+  <h3 class="sub-title">Key Pain Points by Stakeholder</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Stakeholder</th><th>Pain Point</th><th>Business Impact</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Insurance Company</strong></td><td>High operational cost of human assessors</td><td>Rs. 2,000–5,000 per assessment</td></tr>
+        <tr><td><strong>Insurance Company</strong></td><td>Inconsistent damage evaluation standards</td><td>Fraud leakage: 10–15% of claims</td></tr>
+        <tr><td><strong>Customer</strong></td><td>Long waiting time for assessor visit</td><td>NPS drops by 40 points post-claim</td></tr>
+        <tr><td><strong>Repair Workshop</strong></td><td>Quote disputes with insurers</td><td>Delayed payments, cash flow issues</td></tr>
+        <tr><td><strong>Fleet Manager</strong></td><td>No centralized damage tracking</td><td>Cannot monitor asset health at scale</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub-title">Why Computer Vision is the Right Solution</h3>
+  <p>Modern deep learning models trained on automotive damage datasets achieve human-level accuracy (&gt;90% mAP) on damage detection tasks. With smartphone ubiquity, high-quality photos are always available. A well-engineered CV pipeline can process a 6-image inspection set in under 3 seconds — replacing a process that currently takes days.</p>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 2. SOLUTION OVERVIEW -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="solution">
+  <h2 class="sec-title"><span class="sec-num">02</span>Solution Overview</h2>
+
+  <h3 class="sub-title">End-to-End Inference Flow</h3>
+  <div class="flow-diagram">
+    <div class="flow-label">Input</div>
+    <div class="flow-row">
+      <div class="flow-box highlight">📷 User Uploads Photos</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">Preprocessing</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accent">Vehicle Detection (YOLOv8m)</div>
+    </div>
+    <div class="flow-label" style="margin-top:12px">AI Pipeline</div>
+    <div class="flow-row">
+      <div class="flow-box accent">Damage Segmentation (YOLOv8x-seg)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accent">Part ID (EfficientNet-B4)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accent">Severity Scoring (ResNet-50)</div>
+    </div>
+    <div class="flow-label" style="margin-top:12px">Output</div>
+    <div class="flow-row">
+      <div class="flow-box">Cost Estimation Engine</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">Fraud Signal (XGBoost)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">📄 PDF Report + Dashboard</div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Three Operating Modes</h3>
+  <ul class="feature-list">
+    <li><strong>Self-Service Customer Mode</strong> — Customer uploads photos via mobile-friendly web app. Receives instant preliminary report.</li>
+    <li><strong>Assessor Assisted Mode</strong> — Insurance assessor reviews and overrides AI estimates. Final report is co-authored by AI + human.</li>
+    <li><strong>Batch / Fleet Mode</strong> — Fleet operators upload bulk vehicle photos via API. Receive aggregated damage reports.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 3. KEY FEATURES -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="features">
+  <h2 class="sec-title"><span class="sec-num">03</span>Key Features</h2>
+
+  <h3 class="sub-title">AI/ML Features</h3>
+  <ul class="feature-list">
+    <li>Multi-angle damage detection using YOLOv8 with ensemble voting across uploaded images</li>
+    <li>Instance segmentation of damaged regions — pixel-precise masks per damage zone</li>
+    <li><strong>30+ car part labels</strong>: hood, windshield, door FL/FR/RL/RR, bumper front/rear, fender, trunk, roof, side mirror, headlight, taillight, wheel, underbody</li>
+    <li><strong>8 damage type classes</strong>: Scratch, Dent, Crack, Shatter, Deformation, Corrosion, Paint Damage, Missing Part</li>
+    <li>4-level severity scoring: Minor / Moderate / Severe / Total Loss with confidence score</li>
+    <li>Fraud detection signal — flags inconsistencies vs claimed incident type</li>
+    <li>OCR-based license plate extraction for automatic claim linking</li>
+    <li>Vehicle make/model/color recognition to auto-fill claim forms</li>
+  </ul>
+
+  <h3 class="sub-title">Platform Features</h3>
+  <ul class="feature-list">
+    <li>React dashboard with real-time claim tracking via WebSocket</li>
+    <li>Role-based access control: Customer / Assessor / Admin / Fraud Analyst</li>
+    <li>Auto-generated PDF claim report with annotated damage images</li>
+    <li>Analytics dashboard: claim trends, cost heatmaps, model performance metrics</li>
+    <li>REST API with JWT auth — ready for third-party insurance system integration</li>
+    <li>Docker Compose one-command deployment for demo and production</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 4. AI/ML COMPONENTS -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="aiml">
+  <h2 class="sec-title"><span class="sec-num">04</span>AI/ML Components — Deep Dive</h2>
+
+  <div id="models">
+    <h3 class="sub-title">Model Architecture Overview</h3>
+    <div class="model-grid">
+      <div class="model-card">
+        <div class="model-card-header"><h4>Vehicle Detector</h4><span>Primary localization stage</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">YOLOv8m</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">640×640 RGB</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">BBox + Confidence</span></div>
+          <div class="model-attr"><span class="key">Target mAP50</span><span class="val">&gt; 0.90</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-card-header" style="background:linear-gradient(135deg,#0D7A8A,#2E75B6)"><h4>Damage Segmentor</h4><span>Core damage detection</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">YOLOv8x-seg</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">800×800 RGB</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">Masks + BBox + Class</span></div>
+          <div class="model-attr"><span class="key">Target mAP50</span><span class="val">&gt; 0.75</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-card-header" style="background:linear-gradient(135deg,#1E7E4A,#0D7A8A)"><h4>Part Classifier</h4><span>Car part identification</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">EfficientNet-B4</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">224×224 (cropped)</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">Part label + prob</span></div>
+          <div class="model-attr"><span class="key">Target Acc</span><span class="val">&gt; 80%</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-card-header" style="background:linear-gradient(135deg,#D46900,#C0392B)"><h4>Severity Estimator</h4><span>Damage severity scoring</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">ResNet-50 + custom head</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">Segment crop</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">4-class + score</span></div>
+          <div class="model-attr"><span class="key">Target F1</span><span class="val">&gt; 0.74</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-card-header" style="background:linear-gradient(135deg,#4472C4,#1B3A6B)"><h4>Make/Model Recognizer</h4><span>Vehicle identification</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">MobileNetV3 fine-tuned</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">Vehicle crop</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">Make/Model/Year</span></div>
+          <div class="model-attr"><span class="key">Target Acc</span><span class="val">&gt; 80%</span></div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-card-header" style="background:linear-gradient(135deg,#555,#333)"><h4>Fraud Signal Model</h4><span>Anomaly detection</span></div>
+        <div class="model-card-body">
+          <div class="model-attr"><span class="key">Architecture</span><span class="val">XGBoost classifier</span></div>
+          <div class="model-attr"><span class="key">Input</span><span class="val">Report feature vector</span></div>
+          <div class="model-attr"><span class="key">Output</span><span class="val">Fraud probability 0–1</span></div>
+          <div class="model-attr"><span class="key">Target AUC</span><span class="val">&gt; 0.80</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="training">
+    <h3 class="sub-title">YOLOv8x-seg Training Configuration</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Parameter</th><th>Value</th><th>Rationale</th></tr></thead>
+        <tbody>
+          <tr><td>Base Model</td><td><strong>YOLOv8x-seg (COCO pretrained)</strong></td><td>Best accuracy baseline for segmentation</td></tr>
+          <tr><td>Input Resolution</td><td>800 × 800</td><td>Captures fine damage detail</td></tr>
+          <tr><td>Batch Size</td><td>8 (16GB VRAM GPU)</td><td>Fits T4/A100 comfortably</td></tr>
+          <tr><td>Learning Rate</td><td>0.001 with cosine decay</td><td>Standard for fine-tuning</td></tr>
+          <tr><td>Epochs</td><td>100 + early stopping (patience 15)</td><td>Prevents overfitting</td></tr>
+          <tr><td>Optimizer</td><td>AdamW (wd=0.0005)</td><td>Stable convergence</td></tr>
+          <tr><td>Augmentations</td><td>Mosaic, MixUp, Flip, HSV, Blur, Rain, JPEG</td><td>Simulates real-world conditions</td></tr>
+          <tr><td>IoU Threshold</td><td>0.5 for mAP50</td><td>Industry standard</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="sub-sub">Damage Classes (8 Primary)</h4>
+    <div class="pill-group">
+      <span class="pill dark">SCRATCH</span>
+      <span class="pill dark">DENT</span>
+      <span class="pill dark">CRACK</span>
+      <span class="pill dark">SHATTER</span>
+      <span class="pill dark">DEFORMATION</span>
+      <span class="pill dark">CORROSION</span>
+      <span class="pill dark">PAINT_DAMAGE</span>
+      <span class="pill dark">MISSING_PART</span>
+    </div>
+
+    <h4 class="sub-sub">Augmentation Pipeline</h4>
+    <ul class="feature-list">
+      <li><strong>Mosaic augmentation</strong> — 4-image composite, improves detection of small damage regions</li>
+      <li><strong>Random horizontal flip</strong> — vehicle damage can appear on any side</li>
+      <li><strong>HSV color jitter</strong> (hue ±0.015, sat ±0.7, val ±0.4) — handles different lighting conditions</li>
+      <li><strong>Rain/fog overlay</strong> — simulates post-accident weather conditions</li>
+      <li><strong>Gaussian blur</strong> (σ 0.1–2.0) — simulates camera shake and out-of-focus shots</li>
+      <li><strong>JPEG compression</strong> (quality 50–95) — simulates WhatsApp-compressed photos</li>
+      <li><strong>Random scale</strong> (0.5–1.5×) — handles varying camera distances</li>
+    </ul>
+  </div>
+
+  <div id="cost-engine">
+    <h3 class="sub-title">Cost Estimation Engine</h3>
+    <p>A two-stage hybrid approach: rule-based base costs for explainability, then XGBoost refinement for accuracy.</p>
+
+    <h4 class="sub-sub">Sample Pricing Matrix (INR)</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Damage Type</th><th>Severity</th><th>Base Cost</th><th>Labor</th><th>Total Range</th></tr></thead>
+        <tbody>
+          <tr><td>Front Bumper</td><td>Crack</td><td><span class="badge badge-amber">Moderate</span></td><td>Rs. 3,500</td><td>Rs. 1,500</td><td>Rs. 4,500–6,500</td></tr>
+          <tr><td>Hood</td><td>Dent</td><td><span class="badge badge-red">Severe</span></td><td>Rs. 8,000</td><td>Rs. 3,000</td><td>Rs. 10,000–14,000</td></tr>
+          <tr><td>Windshield</td><td>Shatter</td><td><span class="badge badge-red">Total Loss</span></td><td>Rs. 12,000</td><td>Rs. 2,500</td><td>Rs. 13,000–16,000</td></tr>
+          <tr><td>Door (Front L)</td><td>Scratch</td><td><span class="badge badge-green">Minor</span></td><td>Rs. 800</td><td>Rs. 600</td><td>Rs. 1,200–1,800</td></tr>
+          <tr><td>Headlight</td><td>Shatter</td><td><span class="badge badge-red">Severe</span></td><td>Rs. 4,500</td><td>Rs. 1,000</td><td>Rs. 5,000–7,000</td></tr>
+          <tr><td>Side Mirror</td><td>Missing</td><td><span class="badge badge-red">Total Loss</span></td><td>Rs. 2,800</td><td>Rs. 800</td><td>Rs. 3,200–4,200</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="sub-sub">XGBoost Refinement Features</h4>
+    <ul class="feature-list">
+      <li>Damaged area in cm² (from segmentation mask + focal length estimation)</li>
+      <li>Damage density score (overlapping damage zones)</li>
+      <li>Vehicle age and model tier (luxury vs economy)</li>
+      <li>City / region code (labor cost index)</li>
+      <li>Historical claim data for similar damage patterns</li>
+      <li>Assessor override history for similar cases (active feedback loop)</li>
+    </ul>
+  </div>
+
+  <div id="fraud">
+    <h3 class="sub-title">Fraud Detection Signal</h3>
+    <ul class="feature-list">
+      <li><strong>Damage pattern inconsistency</strong> — claimed "rear collision" but damage is on front</li>
+      <li><strong>Temporal anomaly</strong> — claim filed within 24 hours of policy purchase</li>
+      <li><strong>Prior claim frequency</strong> — same customer filed &gt;3 claims in 12 months</li>
+      <li><strong>Damage age estimation</strong> — paint oxidation and rust indicators from image features</li>
+      <li><strong>Repair shop anomaly</strong> — shop has statistical outlier claim approval rate</li>
+      <li><strong>Cost inflation signal</strong> — estimate is &gt;2σ above median for similar damage</li>
+    </ul>
+    <div class="callout warn">
+      <div class="callout-label">⚠️ Ethics Note</div>
+      <p style="margin:0">The fraud score is a signal for human review — NOT an automated rejection trigger. All flagged claims must be reviewed by a fraud analyst. The score is logged, auditable, and never exposed to the customer.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 5. TECH STACK -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="techstack">
+  <h2 class="sec-title"><span class="sec-num">05</span>Complete Tech Stack</h2>
+
+  <h3 class="sub-title">AI/ML Layer</h3>
+  <div class="pill-group">
+    <span class="pill dark">Python 3.10</span>
+    <span class="pill dark">PyTorch 2.2</span>
+    <span class="pill dark">YOLOv8x-seg</span>
+    <span class="pill dark">EfficientNet-B4</span>
+    <span class="pill dark">ResNet-50</span>
+    <span class="pill dark">OpenCV 4.9</span>
+    <span class="pill dark">Albumentations</span>
+    <span class="pill dark">PaddleOCR</span>
+    <span class="pill dark">XGBoost 2.0</span>
+    <span class="pill dark">MLflow 2.12</span>
+    <span class="pill dark">ONNX Runtime</span>
+    <span class="pill dark">Shapely</span>
+    <span class="pill dark">scikit-learn</span>
+  </div>
+
+  <h3 class="sub-title">Backend Layer</h3>
+  <div class="pill-group">
+    <span class="pill">FastAPI 0.111</span>
+    <span class="pill">Uvicorn</span>
+    <span class="pill">SQLAlchemy 2.0</span>
+    <span class="pill">Alembic</span>
+    <span class="pill">PostgreSQL 15</span>
+    <span class="pill">Redis 7.2</span>
+    <span class="pill">Celery 5.3</span>
+    <span class="pill">MinIO</span>
+    <span class="pill">PyJWT + Passlib</span>
+    <span class="pill">Pydantic V2</span>
+    <span class="pill">ReportLab</span>
+    <span class="pill">Loguru</span>
+    <span class="pill">Pytest</span>
+  </div>
+
+  <h3 class="sub-title">Frontend Layer</h3>
+  <div class="pill-group">
+    <span class="pill teal">React 18</span>
+    <span class="pill teal">TypeScript 5.4</span>
+    <span class="pill teal">Vite 5.2</span>
+    <span class="pill teal">Tailwind CSS 3.4</span>
+    <span class="pill teal">shadcn/ui</span>
+    <span class="pill teal">Zustand</span>
+    <span class="pill teal">TanStack Query</span>
+    <span class="pill teal">Konva.js</span>
+    <span class="pill teal">Recharts</span>
+    <span class="pill teal">React Dropzone</span>
+    <span class="pill teal">React Hook Form</span>
+    <span class="pill teal">Framer Motion</span>
+  </div>
+
+  <h3 class="sub-title">Infrastructure</h3>
+  <div class="pill-group">
+    <span class="pill">Docker + Compose</span>
+    <span class="pill">Nginx</span>
+    <span class="pill">GitHub Actions</span>
+    <span class="pill">Railway / Render</span>
+    <span class="pill">AWS S3 / MinIO</span>
+    <span class="pill">Prometheus</span>
+    <span class="pill">Grafana</span>
+    <span class="pill">Sentry</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 6. ARCHITECTURE -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="architecture">
+  <h2 class="sec-title"><span class="sec-num">06</span>System Architecture</h2>
+
+  <div class="flow-diagram">
+    <div class="flow-label">Frontend Layer</div>
+    <div class="flow-row">
+      <div class="flow-box">Customer Portal (React SPA)</div>
+      <div class="flow-box">Assessor Dashboard</div>
+      <div class="flow-box">Admin Panel</div>
+    </div>
+    <div class="flow-row" style="justify-content:center;margin:8px 0">
+      <div class="flow-arrow" style="font-size:22px">↓ HTTPS / REST + WebSocket ↓</div>
+    </div>
+    <div class="flow-label">API Gateway</div>
+    <div class="flow-row">
+      <div class="flow-box">Nginx Reverse Proxy</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accent">FastAPI (4 uvicorn workers)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">Auth · Rate Limit · Logger</div>
+    </div>
+    <div class="flow-row" style="justify-content:center;margin:8px 0">
+      <div class="flow-arrow" style="font-size:22px">↓</div>
+    </div>
+    <div class="flow-label">Service Layer</div>
+    <div class="flow-row">
+      <div class="flow-box">Claim Service</div>
+      <div class="flow-box highlight">Celery Inference Workers</div>
+      <div class="flow-box">Report Service</div>
+    </div>
+    <div class="flow-row" style="justify-content:center;margin:8px 0">
+      <div class="flow-arrow" style="font-size:22px">↓</div>
+    </div>
+    <div class="flow-label">Data Layer</div>
+    <div class="flow-row">
+      <div class="flow-box">PostgreSQL</div>
+      <div class="flow-box">Redis Queue/Cache</div>
+      <div class="flow-box">MinIO (Images + PDFs)</div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">Inference Pipeline Latency Targets</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Stage</th><th>Service</th><th>Latency Target</th></tr></thead>
+      <tbody>
+        <tr><td>S1: Receive &amp; Upload</td><td>FastAPI multipart handler</td><td>&lt; 200 ms</td></tr>
+        <tr><td>S2: Preprocess</td><td>Celery worker — resize, normalize</td><td>&lt; 500 ms</td></tr>
+        <tr><td>S3: Vehicle Detect</td><td>YOLOv8m ONNX</td><td>&lt; 300 ms</td></tr>
+        <tr><td>S4: Damage Segment</td><td>YOLOv8x-seg</td><td>&lt; 800 ms</td></tr>
+        <tr><td>S5: Part Classify</td><td>EfficientNet-B4</td><td>&lt; 300 ms</td></tr>
+        <tr><td>S6: Severity Score</td><td>ResNet-50</td><td>&lt; 200 ms</td></tr>
+        <tr><td>S7: Cost Estimate</td><td>Rule engine + XGBoost</td><td>&lt; 100 ms</td></tr>
+        <tr><td>S8: PDF Report</td><td>ReportLab</td><td>&lt; 1,000 ms</td></tr>
+        <tr><td>S9: Notify</td><td>WebSocket push + Email</td><td>&lt; 100 ms</td></tr>
+        <tr><td><strong>Total (CPU)</strong></td><td>Full pipeline</td><td><strong>&lt; 3,500 ms</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="api">
+    <h3 class="sub-title">REST API Endpoints</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-green">POST</span></td><td><code>/api/v1/auth/register</code></td><td>Public</td><td>Register new user</td></tr>
+          <tr><td><span class="badge badge-green">POST</span></td><td><code>/api/v1/auth/login</code></td><td>Public</td><td>Login, returns JWT</td></tr>
+          <tr><td><span class="badge badge-green">POST</span></td><td><code>/api/v1/claims/</code></td><td>Customer</td><td>Create claim, upload images</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/claims/</code></td><td>Customer</td><td>List own claims (paginated)</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/claims/{id}</code></td><td>Customer/Assessor</td><td>Full claim + detections</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/claims/{id}/report</code></td><td>Customer/Assessor</td><td>Download PDF report</td></tr>
+          <tr><td><span class="badge badge-amber">PATCH</span></td><td><code>/api/v1/claims/{id}/review</code></td><td>Assessor</td><td>Override + approve/reject</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/admin/claims</code></td><td>Admin</td><td>All claims with filters</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/admin/analytics</code></td><td>Admin</td><td>Aggregated metrics</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/admin/fraud-queue</code></td><td>Fraud Analyst</td><td>Flagged claims list</td></tr>
+          <tr><td><span class="badge badge-blue">GET</span></td><td><code>/api/v1/health</code></td><td>Public</td><td>Health check</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="schema">
+    <h3 class="sub-title">Core Database Schema</h3>
+    <div class="code-block"><span class="cm">-- CLAIMS TABLE</span>
+<span class="kw">CREATE TABLE</span> claims (
+  id              <span class="nb">UUID</span> <span class="kw">PRIMARY KEY</span> DEFAULT gen_random_uuid(),
+  customer_id     <span class="nb">UUID</span> <span class="kw">REFERENCES</span> users(id),
+  assessor_id     <span class="nb">UUID</span> <span class="kw">REFERENCES</span> users(id),
+  status          <span class="kw">ENUM</span>(<span class="str">'uploaded'</span>,<span class="str">'processing'</span>,<span class="str">'ai_complete'</span>,
+                       <span class="str">'under_review'</span>,<span class="str">'approved'</span>,<span class="str">'rejected'</span>,<span class="str">'fraud_review'</span>),
+  vehicle_reg     <span class="nb">VARCHAR</span>(20),
+  vehicle_make    <span class="nb">VARCHAR</span>(100),
+  vehicle_model   <span class="nb">VARCHAR</span>(100),
+  vehicle_year    <span class="nb">SMALLINT</span>,
+  incident_type   <span class="nb">VARCHAR</span>(50),   <span class="cm">-- collision, theft, weather, fire</span>
+  incident_date   <span class="nb">DATE</span>,
+  incident_city   <span class="nb">VARCHAR</span>(100),
+  ai_cost_min     <span class="nb">NUMERIC</span>(10,2),
+  ai_cost_max     <span class="nb">NUMERIC</span>(10,2),
+  final_cost      <span class="nb">NUMERIC</span>(10,2),
+  fraud_score     <span class="nb">NUMERIC</span>(4,3),  <span class="cm">-- 0.000 to 1.000</span>
+  fraud_flagged   <span class="nb">BOOLEAN</span> DEFAULT FALSE,
+  created_at      <span class="nb">TIMESTAMPTZ</span> DEFAULT NOW()
+);
+
+<span class="cm">-- DAMAGE DETECTIONS TABLE</span>
+<span class="kw">CREATE TABLE</span> damage_detections (
+  id              <span class="nb">UUID</span> <span class="kw">PRIMARY KEY</span> DEFAULT gen_random_uuid(),
+  claim_id        <span class="nb">UUID</span> <span class="kw">REFERENCES</span> claims(id),
+  image_id        <span class="nb">UUID</span> <span class="kw">REFERENCES</span> claim_images(id),
+  car_part        <span class="nb">VARCHAR</span>(60),     <span class="cm">-- 'hood', 'door_fl', 'bumper_front'...</span>
+  damage_type     <span class="nb">VARCHAR</span>(30),     <span class="cm">-- 'scratch', 'dent', 'crack'...</span>
+  severity        <span class="kw">ENUM</span>(<span class="str">'minor'</span>,<span class="str">'moderate'</span>,<span class="str">'severe'</span>,<span class="str">'total_loss'</span>),
+  confidence      <span class="nb">NUMERIC</span>(4,3),
+  bbox_x          <span class="nb">INTEGER</span>,  bbox_y <span class="nb">INTEGER</span>,
+  bbox_w          <span class="nb">INTEGER</span>,  bbox_h <span class="nb">INTEGER</span>,
+  mask_polygon    <span class="nb">JSONB</span>,
+  area_cm2        <span class="nb">NUMERIC</span>(8,2),
+  part_cost_min   <span class="nb">NUMERIC</span>(8,2),
+  part_cost_max   <span class="nb">NUMERIC</span>(8,2),
+  labor_cost      <span class="nb">NUMERIC</span>(8,2)
+);</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 7. DEVELOPMENT PLAN -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="devplan">
+  <h2 class="sec-title"><span class="sec-num">07</span>Development Plan — 10 Weeks</h2>
+
+  <div class="timeline">
+
+    <div class="tl-item phase">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Phase 1 — Foundation &amp; Data</div>
+      <div class="tl-week">Weeks 1–2</div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 1 — Environment Setup &amp; Data Collection</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Set up dev environment: Python 3.10, PyTorch 2.2, Node 20, PostgreSQL, Redis, Docker — all members</div>
+        <div class="tl-task">Initialize monorepo: /backend, /frontend, /ml, /docker, /scripts. Git branching: main → develop → feature/*</div>
+        <div class="tl-task">Download all primary datasets (CarDD, VCoR, Stanford Cars, CarParts-1K). Write data audit report.</div>
+        <div class="tl-task">Collect 300–400 custom Indian vehicle photos (parking lots, service centers). Cover all damage types.</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 2 — Annotation &amp; Preprocessing Pipeline</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Deploy Label Studio. Create project with 8 damage classes + 30 part labels. Assign annotation batches.</div>
+        <div class="tl-task">Each intern annotates 100–150 images (segmentation masks + bounding boxes). Cross-validate 20%.</div>
+        <div class="tl-task">Build Python pipeline: data loader → augmentation → train/val/test split (70/15/15) → YOLOv8 format export.</div>
+        <div class="tl-task">Quality checks: label distribution, corrupt image scan, mask validity. Generate dataset statistics report.</div>
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Phase 2 — AI/ML Pipeline</div>
+      <div class="tl-week">Weeks 3–5</div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 3 — Damage Detection Model</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Train YOLOv8s baseline. Log to MLflow. Target: mAP50 &gt; 0.55 on val set.</div>
+        <div class="tl-task">Train full YOLOv8x-seg at 800×800. Experiment: resolution 640 vs 800. Log all hyperparameter runs.</div>
+        <div class="tl-task">Augmentation tuning: add rain/blur/JPEG overlays. Measure mAP impact. Finalize best augmentation set.</div>
+        <div class="tl-task">Full evaluation: per-class mAP50, confusion matrix, identify weak classes for Week 5 fix.</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 4 — Part Classifier, Severity Model, OCR</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Fine-tune EfficientNet-B4 on CarParts dataset. Add 30-class head. Target: Top-1 Acc &gt; 80%.</div>
+        <div class="tl-task">Label damage crops with 4 severity levels. Fine-tune ResNet-50. Target: weighted F1 &gt; 0.75.</div>
+        <div class="tl-task">Integrate PaddleOCR for plate extraction. Fine-tune MobileNetV3 on Stanford Cars for make/model.</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 5 — Inference Pipeline + Cost &amp; Fraud Models</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Chain all models end-to-end. Test on 50 images. Ensure full pipeline runs without errors.</div>
+        <div class="tl-task">ONNX export for all models. Benchmark CPU inference. Target: full pipeline &lt; 3 sec.</div>
+        <div class="tl-task">Build pricing database (SQLite). Rule-based cost calculator + XGBoost cost refinement model.</div>
+        <div class="tl-task">Fraud signal: engineer 6 features, train XGBoost, validate. Register all models in MLflow Registry.</div>
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Phase 3 — Backend API</div>
+      <div class="tl-week">Week 6</div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 6 — FastAPI Backend + Celery Workers</div>
+      <div class="tl-tasks">
+        <div class="tl-task">FastAPI project structure: routers, dependency injection, pydantic-settings config management.</div>
+        <div class="tl-task">SQLAlchemy models + Alembic migrations. Seed pricing data and test users.</div>
+        <div class="tl-task">Auth endpoints: register, login, token refresh, logout. JWT + bcrypt.</div>
+        <div class="tl-task">Claim endpoints: create, upload images (MinIO), list, get detail. Celery inference worker integration.</div>
+        <div class="tl-task">PDF report builder: annotated images + detection table + cost breakdown. WebSocket status push.</div>
+        <div class="tl-task">Pytest suite for all endpoints. Coverage target: 80%.</div>
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Phase 4 — Frontend</div>
+      <div class="tl-week">Weeks 7–8</div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 7 — Core Customer UI</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Vite + React + TypeScript + Tailwind + shadcn/ui + Zustand + TanStack Query setup.</div>
+        <div class="tl-task">Auth pages: Login, Register. JWT in memory. Auto-refresh token logic.</div>
+        <div class="tl-task">Claim creation wizard: Incident details → Vehicle info → Photo upload → Submit.</div>
+        <div class="tl-task">Photo upload: React Dropzone, multi-file, angle tag selector, real-time progress.</div>
+        <div class="tl-task">Real-time status tracker via WebSocket. Results page with Konva.js damage overlay canvas.</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 8 — Assessor + Admin + Analytics UI</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Assessor review dashboard: override detections, add comments, approve/reject claims.</div>
+        <div class="tl-task">Admin panel: all claims with filters, user management, system health indicators.</div>
+        <div class="tl-task">Analytics: Recharts bar/line/pie charts, city heatmap, damage distribution, cost trends.</div>
+        <div class="tl-task">PDF viewer, download, time-limited share link. Mobile-responsive polish. Dark mode toggle.</div>
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Phase 5 — Integration, Testing &amp; Demo</div>
+      <div class="tl-week">Weeks 9–10</div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 9 — Integration Testing &amp; Deployment</div>
+      <div class="tl-tasks">
+        <div class="tl-task">End-to-end flow test with 20 real vehicle photos. Fix all integration bugs.</div>
+        <div class="tl-task">Profile inference pipeline. Locust load test (50 concurrent users). Optimize bottlenecks.</div>
+        <div class="tl-task">Docker Compose: FastAPI, Celery, PostgreSQL, Redis, MinIO, Nginx, React. One-command startup.</div>
+        <div class="tl-task">GitHub Actions CI/CD: lint → test → build → deploy. Security audit: CORS, rate limits, input validation.</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-header">Week 10 — Demo Prep &amp; College Report</div>
+      <div class="tl-tasks">
+        <div class="tl-task">Seed 15 demo claims: varied damage types, severities, 2 fraud-flagged cases.</div>
+        <div class="tl-task">Write 10-minute demo script. Record backup video in case of live demo failure.</div>
+        <div class="tl-task">College report: abstract, methodology, results, model performance charts, future work.</div>
+        <div class="tl-task">Final bug bash + mentor review + demo practice. Buffer for unexpected fixes.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 8. DATASETS -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="datasets">
+  <h2 class="sec-title"><span class="sec-num">08</span>Dataset Strategy</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Dataset</th><th>Size</th><th>Content</th><th>Source</th><th>License</th></tr></thead>
+      <tbody>
+        <tr><td><strong>CarDD</strong></td><td>4,000 images</td><td>Car damage detection, 6 damage classes, bbox + seg</td><td>Kaggle / GitHub</td><td>Research</td></tr>
+        <tr><td><strong>VCoR</strong></td><td>2,000+ images</td><td>Vehicle collision damage, severity labeled</td><td>Kaggle</td><td>CC BY</td></tr>
+        <tr><td><strong>Stanford Cars</strong></td><td>16,185 images</td><td>196 car classes, make/model/year</td><td>Stanford AI Lab</td><td>Research</td></tr>
+        <tr><td><strong>CarParts-1K</strong></td><td>~5,000 images</td><td>30 car part categories annotated</td><td>Roboflow Universe</td><td>CC BY</td></tr>
+        <tr><td><strong>Open Images V7</strong></td><td>~3,000 subset</td><td>Vehicles with part annotations</td><td>Google</td><td>CC BY</td></tr>
+        <tr><td><strong>Custom (intern-collected)</strong></td><td>300–500 images</td><td>Indian vehicles, local damage types</td><td>Self-collected</td><td>Proprietary</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub-title">Custom Dataset Collection Protocol</h3>
+  <ol class="steps">
+    <li>Photograph at service centers, parking lots, insurance offices (with permission). Target Indian models: Maruti Alto/Swift, Hyundai i20/Creta, Tata Nexon, Mahindra Scorpio, Honda City.</li>
+    <li>Capture all 8 damage types. For rare types (Deformation, Corrosion), coordinate with a local body shop.</li>
+    <li>For each vehicle, capture all 6 standard angles: Front, Rear, Left Side, Right Side, Top-Front diagonal, Close-up of damage.</li>
+    <li>Record metadata per image: make, model, year, damage type, severity (assessor-labeled), city — stored in CSV.</li>
+    <li>Target: 400 images with minimum 50 instances per damage class before training begins.</li>
+    <li>Inter-annotator agreement check: 20% of images annotated by two interns. Flag IoU disagreement &gt; 0.2 for review.</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 9. EVALUATION METRICS -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="metrics">
+  <h2 class="sec-title"><span class="sec-num">09</span>Evaluation Metrics &amp; Acceptance Criteria</h2>
+
+  <h3 class="sub-title">Detection Model Targets</h3>
+  <div style="background:#fff; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin:16px 0;">
+    <div class="metric-item">
+      <div class="metric-label"><span>mAP50 (all classes)</span><span>&gt; 0.75</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:75%"></div></div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label"><span>mAP50-95</span><span>&gt; 0.55</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:55%"></div></div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label"><span>Precision @ 0.5 conf</span><span>&gt; 0.80</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:80%"></div></div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label"><span>Recall @ 0.5 conf</span><span>&gt; 0.78</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:78%"></div></div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label"><span>Mask IoU (segmentation)</span><span>&gt; 0.68</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:68%"></div></div>
+    </div>
+    <div class="metric-item" style="margin-bottom:0">
+      <div class="metric-label"><span>Part Classifier Top-1 Accuracy</span><span>&gt; 78%</span></div>
+      <div class="metric-bar"><div class="metric-fill" style="width:78%;background:linear-gradient(90deg,var(--teal),#1E7E4A)"></div></div>
+    </div>
+  </div>
+
+  <h3 class="sub-title">All Model Targets</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Model</th><th>Metric</th><th>Minimum</th><th>Good</th></tr></thead>
+      <tbody>
+        <tr><td>Damage Detector</td><td>mAP50</td><td>&gt; 0.60</td><td>&gt; 0.75</td></tr>
+        <tr><td>Part Classifier</td><td>Top-1 Accuracy</td><td>&gt; 73%</td><td>&gt; 80%</td></tr>
+        <tr><td>Part Classifier</td><td>Top-3 Accuracy</td><td>&gt; 88%</td><td>&gt; 92%</td></tr>
+        <tr><td>Severity Estimator</td><td>Weighted F1</td><td>&gt; 0.70</td><td>&gt; 0.78</td></tr>
+        <tr><td>Make/Model Recognizer</td><td>Top-1 Accuracy</td><td>&gt; 75%</td><td>&gt; 82%</td></tr>
+        <tr><td>Cost Estimation (MAPE)</td><td>Mean Abs % Error</td><td>&lt; 30%</td><td>&lt; 20%</td></tr>
+        <tr><td>Fraud Signal</td><td>AUC-ROC</td><td>&gt; 0.75</td><td>&gt; 0.85</td></tr>
+        <tr><td>Full Pipeline (CPU)</td><td>Latency</td><td>&lt; 5 sec</td><td>&lt; 3 sec</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 10. DEMO STRATEGY -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="demo">
+  <h2 class="sec-title"><span class="sec-num">10</span>Demo Strategy for College Presentation</h2>
+
+  <h3 class="sub-title">10-Minute Demo Script</h3>
+  <ol class="steps">
+    <li><strong>Min 0–1:</strong> Problem framing — slide showing traditional 7-day claims process vs AutoClaim Vision 3-second flow.</li>
+    <li><strong>Min 1–2:</strong> Live login as customer on the deployed URL. Quick tour of the clean dashboard.</li>
+    <li><strong>Min 2–4:</strong> Submit a claim — use pre-prepared 4-photo set (moderately damaged car). Walk through multi-step wizard and hit Submit.</li>
+    <li><strong>Min 4–6:</strong> Show real-time processing (Celery logs on second monitor). Watch status: Uploaded → Processing → AI Complete.</li>
+    <li><strong>Min 6–8:</strong> Results page — annotated damage overlays, detection table, severity badges, cost breakdown. Download PDF.</li>
+    <li><strong>Min 8–9:</strong> Switch to assessor account. Show override flow — change one severity from Moderate to Severe.</li>
+    <li><strong>Min 9–10:</strong> Analytics dashboard — charts, fraud-flagged demo claim, future SaaS pitch.</li>
+  </ol>
+
+  <h3 class="sub-title">Pre-prepared Demo Scenarios</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Scenario</th><th>Damage Description</th><th>Est. Cost</th><th>Fraud Score</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Scenario A</strong> — Mild</td><td>2 scratches, 1 minor dent. Front bumper + door.</td><td>Rs. 3,000–5,000</td><td><span class="badge badge-green">0.02</span></td></tr>
+        <tr><td><strong>Scenario B</strong> — Moderate</td><td>Cracked headlight, dented hood, broken side mirror.</td><td>Rs. 18,000–25,000</td><td><span class="badge badge-green">0.11</span></td></tr>
+        <tr><td><strong>Scenario C</strong> — Severe</td><td>Deformed front, shattered windshield, multiple panels.</td><td>Rs. 60,000–90,000</td><td><span class="badge badge-green">0.05</span></td></tr>
+        <tr><td><strong>Scenario D</strong> — Fraud Flag</td><td>Claims front collision but only rear damage detected.</td><td>Rs. 12,000–18,000</td><td><span class="badge badge-red">0.87</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout success">
+    <div class="callout-label">💡 Backup Plan</div>
+    <p style="margin:0">Record a 5-minute screen capture of all 4 scenarios. Upload to YouTube (unlisted). Have URL ready. Also keep the system running locally via Docker Compose as a second fallback. Never depend on live internet alone for a demo.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 11. FUTURE / SAAS -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="future">
+  <h2 class="sec-title"><span class="sec-num">11</span>Future Enhancements — SaaS Roadmap</h2>
+
+  <h3 class="sub-title">Phase 1 SaaS (Month 1–3)</h3>
+  <ul class="feature-list">
+    <li><strong>Multi-tenant architecture</strong> — isolated data per insurance company, custom pricing DBs and branding</li>
+    <li><strong>Mobile app (React Native)</strong> — camera-first with AR angle guides for photo capture</li>
+    <li><strong>WhatsApp integration</strong> — submit 4 photos, receive PDF report in chat. Zero app install.</li>
+    <li><strong>Video damage assessment</strong> — accept 10-second video clip, extract keyframes for 360° analysis</li>
+  </ul>
+
+  <h3 class="sub-title">Phase 2 — Advanced AI (Month 3–6)</h3>
+  <ul class="feature-list">
+    <li><strong>3D damage reconstruction</strong> — MiDaS depth estimation for surface area volume calculation</li>
+    <li><strong>Pre/post damage comparison</strong> — detect pre-existing vs new damage from photo history</li>
+    <li><strong>Live parts pricing API</strong> — real-time OEM/aftermarket supplier pricing integration</li>
+    <li><strong>Fleet management module</strong> — track per-vehicle damage history, predict maintenance cycles</li>
+  </ul>
+
+  <h3 class="sub-title">Revenue Model</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tier</th><th>Target Customer</th><th>Pricing</th><th>Key Features</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-blue">Starter</span></td><td>Brokers, workshops</td><td>Rs. 5 / claim</td><td>Basic detection, PDF report</td></tr>
+        <tr><td><span class="badge badge-green">Professional</span></td><td>Mid-size insurers</td><td>Rs. 500/mo + Rs. 3/claim</td><td>Full pipeline, assessor workflow, analytics</td></tr>
+        <tr><td><span class="badge badge-amber">Enterprise</span></td><td>Large insurers</td><td>Custom contract</td><td>Multi-tenant, API integration, SLA, custom models</td></tr>
+        <tr><td><span class="badge badge-red">Fleet</span></td><td>Transport companies</td><td>Rs. 2,000/vehicle/yr</td><td>Bulk upload, fleet dashboard, predictive alerts</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 12. RISKS -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="risks">
+  <h2 class="sec-title"><span class="sec-num">12</span>Risk Register</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Risk</th><th>Probability</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Insufficient data for rare damage types</td><td><span class="badge badge-red">High</span></td><td><span class="badge badge-red">High</span></td><td>Over-collect rare classes; use synthetic augmentation; transfer learning fallback</td></tr>
+        <tr><td>Inference too slow on CPU-only demo machine</td><td><span class="badge badge-amber">Medium</span></td><td><span class="badge badge-red">High</span></td><td>ONNX export + INT8 quantization; pre-warm models; use Google Colab GPU fallback</td></tr>
+        <tr><td>Poor accuracy on Indian vehicle types</td><td><span class="badge badge-amber">Medium</span></td><td><span class="badge badge-red">High</span></td><td>400+ custom Indian vehicle photos; weighted sampling in training</td></tr>
+        <tr><td>Demo deployment failure on college WiFi</td><td><span class="badge badge-amber">Medium</span></td><td><span class="badge badge-red">High</span></td><td>Pre-recorded video backup + localhost Docker Compose fallback</td></tr>
+        <tr><td>Cost estimation wildly inaccurate</td><td><span class="badge badge-amber">Medium</span></td><td><span class="badge badge-amber">Medium</span></td><td>Validate against 20 real assessor quotes; widen uncertainty ranges initially</td></tr>
+        <tr><td>Frontend-Backend integration issues</td><td><span class="badge badge-green">Low</span></td><td><span class="badge badge-amber">Medium</span></td><td>Configure Nginx proxy early; E2E test from Week 8 onwards</td></tr>
+        <tr><td>Dataset licensing conflict</td><td><span class="badge badge-green">Low</span></td><td><span class="badge badge-amber">Medium</span></td><td>Use only research-licensed datasets; cite all sources in the report</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 13. SKILLS MAP -->
+<!-- ═══════════════════════════════════════ -->
+<div class="section" id="skills-map">
+  <h2 class="sec-title"><span class="sec-num">13</span>Skills Map &amp; Intern Assignments</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Skill Area</th><th>Phase</th><th>Deliverable</th><th>Assigned To</th></tr></thead>
+      <tbody>
+        <tr><td>Data collection &amp; annotation (Label Studio)</td><td>Phase 1</td><td>Annotated dataset (400+ images)</td><td>All 3 interns</td></tr>
+        <tr><td>YOLOv8 training + MLflow logging</td><td>Phase 2</td><td>Damage detection model</td><td>Intern 1 (AI Lead)</td></tr>
+        <tr><td>EfficientNet fine-tuning</td><td>Phase 2</td><td>Part classifier model</td><td>Intern 2</td></tr>
+        <tr><td>OCR + vehicle recognition</td><td>Phase 2</td><td>Plate OCR + make/model model</td><td>Intern 3</td></tr>
+        <tr><td>FastAPI + SQLAlchemy + Celery</td><td>Phase 3</td><td>Backend API with async inference</td><td>Intern 1 + 2</td></tr>
+        <tr><td>React + TypeScript + Tailwind</td><td>Phase 4</td><td>Full frontend application</td><td>Intern 3 (Frontend Lead)</td></tr>
+        <tr><td>Docker + Nginx + CI/CD</td><td>Phase 5</td><td>Containerized deployment</td><td>Intern 1</td></tr>
+        <tr><td>Cost estimation engine + XGBoost</td><td>Phase 2–3</td><td>Pricing module</td><td>Intern 2</td></tr>
+        <tr><td>PDF report generation (ReportLab)</td><td>Phase 3</td><td>Auto-generated claim reports</td><td>Intern 3</td></tr>
+        <tr><td>Canvas image annotation (Konva.js)</td><td>Phase 4</td><td>Interactive damage overlay UI</td><td>Intern 3</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout" style="margin-top:28px">
+    <div class="callout-label">🚀 Final Note from Your Mentor</div>
+    <p style="margin:0;line-height:1.8">AutoClaim Vision is not a toy project — it's a production-grade system solving a real, multi-billion-dollar industry problem. Every technology choice in this spec is used by real companies right now. If you build this well, it's startup-ready on Day 1 of graduation. Focus on <strong>data quality</strong> first, model performance second, and polish last. Good data beats a clever model every single time. Build something you'd be proud to show an investor — not just a professor.</p>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding: 40px 0 20px; color:var(--gray); font-size:12px; border-top:1px solid var(--silver); margin-top:40px;">
+  AutoClaim Vision — Project Specification v1.0 &nbsp;|&nbsp; April 2026 &nbsp;|&nbsp; Confidential — Internal Use Only
+</div>
+
+</div><!-- /content -->
+</main>
+
+<script>
+// Active nav highlight on scroll
+const sections = document.querySelectorAll('.section[id]');
+const navLinks = document.querySelectorAll('.nav-item[href^="#"]');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navLinks.forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { rootMargin: '-20% 0px -75% 0px' });
+sections.forEach(s => observer.observe(s));
+
+// Smooth scroll
+navLinks.forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (window.innerWidth < 900) document.getElementById('sidebar').classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>

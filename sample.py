@@ -1,1 +1,0 @@
-print("AutoVision Sample Code")
