@@ -47,7 +47,7 @@ if uploaded_file:
     with col2:
         st.subheader("Detected Damage")
         # Display the processed image in the second column
-        st.image(result_img, use_container_width=True)
+        st.image(result_img, use_container_width=True, channels="BGR")
 
     # Damage Report Section
     st.markdown("---")
