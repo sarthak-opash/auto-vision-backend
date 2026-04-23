@@ -72,7 +72,7 @@ if uploaded_file:
 
     with col2:
         st.subheader("Detected Parts")
-        st.image(plotted, use_container_width=True)
+        st.image(plotted, use_container_width=True, channels="BGR")
 
     # ------------------------------------------------------
     # SHOW DETECTED PARTS LIST
