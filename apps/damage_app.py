@@ -19,7 +19,7 @@ if not os.path.exists(MODEL_PATH):
 
 model = YOLO(MODEL_PATH)
 
-uploaded_file = st.file_uploader("Upload Car Image", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Upload Car Image", type=["jpg", "png", "jpeg", "webp"])
 
 if uploaded_file:
     # Open and convert image to maintain consistency
