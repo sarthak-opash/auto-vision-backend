@@ -72,4 +72,8 @@ async def upload_and_predict(file: UploadFile = File(...)):
 
     model = get_model()
     results = model.predict(source=image, conf=0.25)
-    return {"predictions": results[0].boxes.data.tolist()}
+    return {
+        "predictions": results[0].boxes.data.tolist(),
+        "part-name": model.names[0]
+        
+        }
