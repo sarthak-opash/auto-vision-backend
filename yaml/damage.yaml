@@ -1,0 +1,13 @@
+train: ../datasets/damage/train/images
+val: ../datasets/damage/valid/images
+test: ../datasets/damage/test/images
+
+nc: 17
+names: ['Bodypanel-Dent', 'Front-Windscreen-Damage', 'Headlight-Damage', 'Rear-windscreen-Damage', 'RunningBoard-Dent', 'Sidemirror-Damage', 'Signlight-Damage', 'Taillight-Damage', 'bonnet-dent', 'boot-dent', 'doorouter-dent', 'fender-dent', 'front-bumper-dent', 'pillar-dent', 'quaterpanel-dent', 'rear-bumper-dent', 'roof-dent']
+
+roboflow:
+  workspace: sindhu
+  project: car_dent_scratch_detection-1
+  version: 9
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/sindhu/car_dent_scratch_detection-1/dataset/9
