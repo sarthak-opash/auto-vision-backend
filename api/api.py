@@ -72,8 +72,20 @@ async def upload_and_predict(file: UploadFile = File(...)):
 
     model = get_model()
     results = model.predict(source=image, conf=0.25)
+    boxes = results[0].boxes
+
+    detections = []
+    for box in boxes:
+        class_id = int(box.cls[0])
+        detections.append(
+            {
+                "damage_type": model.names[class_id],
+                "confidence": float(box.conf[0]),
+                "bbox": [float(value) for value in box.xyxy[0].tolist()],
+            }
+        )
+
     return {
-        "predictions": results[0].boxes.data.tolist(),
-        "part-name": model.names[0]
-        
-        }
+        "predictions": detections,
+        "count": len(detections),
+    }
