@@ -2,13 +2,14 @@ from ultralytics import YOLO
 import torch
 
 def train_model():
-    model = YOLO("yolo11m.pt")
+    model = YOLO("yolo11s.pt")
  
     model.train(
-        data="../datasets/damage_v2/data.yaml",
+        data="../yaml/damage.yaml",
         epochs=50,
         imgsz=640,
-        batch=8,           # Try 4, if OOM, drop to 2
+        batch=12,           # Try 4, if OOM, drop to 2
+        workers = 2,
         nbs=64,
         optimizer='AdamW',
         lr0=0.001,
@@ -72,8 +73,6 @@ if __name__ == "__main__":
     train_model()
 
     print("🎉 Training Completed!")
-    print("Best Model Path:")
-    print("runs/detect/train/weights/best.pt")
 
     # test_model()
 
