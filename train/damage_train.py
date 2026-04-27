@@ -2,20 +2,34 @@ from ultralytics import YOLO
 import torch
 
 def train_model():
-    model = YOLO("yolo11s.pt")
-
+    model = YOLO("yolo11m.pt")
+ 
     model.train(
-        data="../yaml/damage.yaml",
-        epochs=100,
+        data="../datasets/damage_v2/data.yaml",
+        epochs=50,
         imgsz=640,
-        batch=12, 
-        device=0,
-        workers=2,
-        patience=20,
-        dropout=0.1,
+        batch=8,           # Try 4, if OOM, drop to 2
+        nbs=64,
         optimizer='AdamW',
-        amp=True,
-        cache=True
+        lr0=0.001,
+        cos_lr=True,
+        patience=50,
+        # Classification priority
+        cls=1.5,           
+        label_smoothing=0.1,
+        dropout=0.1,       
+        # Augmentations for 31 classes
+        mosaic=1.0,
+        mixup=0.1,         # Slightly lower mixup for the larger dataset
+        degrees=10.0,
+        scale=0.5,
+        fliplr=0.5,
+        # The Finish
+        close_mosaic=10,   
+        device=0,
+        project = "D:/Files/My Projects/AutoClaim Vision/AutoClaim Vision/runs/damage_v2",
+        name = "",
+        exist_ok = True
     )
 
 def test_model():
@@ -55,13 +69,13 @@ if __name__ == "__main__":
 
     print("🚀 Starting Car Damage Detection Training...")
 
-    # train_model()
+    train_model()
 
     print("🎉 Training Completed!")
     print("Best Model Path:")
     print("runs/detect/train/weights/best.pt")
 
-    test_model()
+    # test_model()
 
-    print("Model test completed")
-    print("result saved in runs/detect/predict/")
+    # print("Model test completed")
+    # print("result saved in runs/detect/predict/")

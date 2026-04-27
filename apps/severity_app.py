@@ -15,6 +15,12 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import os
+import sys
+
+BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+if BASE_PATH not in sys.path:
+    sys.path.append(BASE_PATH)
 
 # import your engine
 from train.severity import calculate_severity
@@ -34,7 +40,7 @@ st.write("Upload damaged car image to test severity engine.")
 # ==========================================================
 # LOAD MODEL
 # ==========================================================
-MODEL_PATH = r"../runs/damage/weights/best.pt"
+MODEL_PATH = os.path.join(BASE_PATH, "runs", "damage", "weights", "best.pt")
 
 if not os.path.exists(MODEL_PATH):
     st.error("Damage model not found.")
@@ -79,7 +85,7 @@ if uploaded_file:
 
     with col2:
         st.subheader("Detected Damage")
-        st.image(plotted, use_container_width=True)
+        st.image(plotted, use_container_width=True, channels="BGR")
 
     # ======================================================
     # ANALYSIS
