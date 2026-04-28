@@ -125,5 +125,5 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
     return {
         #"predictions": detections,
         "severity_report": severity_report,
-       # "count": len(detections),
+        "count": len(severity_report),
     }
