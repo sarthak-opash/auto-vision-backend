@@ -1,0 +1,20 @@
+train: ../datasets/damage_v3/train/images
+val: ../datasets/damage_v3/valid/images
+test: ../datasets/damage_v3/test/images
+
+nc: 13
+
+names:
+  0: bonnet-dent
+  1: door-dent
+  2: fender-dent
+  3: front-bumper-dent
+  4: rear-bumper-dent
+  5: quarterpanel-dent
+  6: roof-dent
+  7: runningboard-dent
+  8: windshield-damage
+  9: lamp-damage
+  10: scratch
+  11: crack
+  12: tire-flat

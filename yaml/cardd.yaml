@@ -1,0 +1,11 @@
+train: ../datasets/damage_v0.1/images/train
+val: ../datasets/damage_v0.1/images/val
+test: ../datasets/damage_v0.1/images/test
+
+names:
+  0: dent
+  1: scratch
+  2: crack
+  3: glass shatter
+  4: lamp broken
+  5: tire flat
