@@ -147,28 +147,6 @@ def get_damage_type(label):
     return "damage"
 
 
-# def _extract_box_data(box=None, confidence=None):
-#     bbox = None
-
-#     if box is None:
-#         return bbox, confidence
-
-#     if isinstance(box, dict):
-#         bbox = box.get("bbox") or box.get("xyxy")
-#         if confidence is None:
-#             confidence = box.get("confidence", box.get("conf"))
-#         return bbox, confidence
-
-#     if hasattr(box, "xyxy"):
-#         coords = box.xyxy[0].tolist()
-#         bbox = [float(coord) for coord in coords]
-
-#     if confidence is None and hasattr(box, "conf"):
-#         confidence = float(box.conf[0])
-
-#     return bbox, confidence
-
-
 def _get_part_score(damage_label, part_label):
     if part_label is not None:
         matched_part = get_match_score(part_label, PART_SCORE, None)
@@ -257,6 +235,10 @@ def _is_critical_part(label):
             "roof",
         ]
     )
+
+
+def _dedupe_preserve_order(values):
+    return list(dict.fromkeys(values))
 
 
 def _overlap_penalty(current_bbox, previous_boxes):
@@ -357,14 +339,12 @@ def generate_severity_report(detections, img_w, img_h, part_detections=None):
             item["severity_contribution"] = 0.0
             del item["raw_contribution"]
 
-    # Remove duplicate critical flags
-    if critical_flags:
-        critical_flags = list(dict.fromkeys(critical_flags))
+    critical_flags = _dedupe_preserve_order(critical_flags)
 
     return {
         "severity_score": severity_score,
         "severity_level": severity_level,
-        "detected_parts": list(dict.fromkeys(detected_parts)),
+        "detected_parts": _dedupe_preserve_order(detected_parts),
         "damage_table": items,
         "critical_flags": critical_flags,
     }
