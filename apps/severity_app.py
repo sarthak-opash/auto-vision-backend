@@ -28,6 +28,22 @@ import train.severity as severity_engine
 severity_engine = importlib.reload(severity_engine)
 
 
+def boxes_to_rows(boxes, names):
+    rows = []
+
+    for box in boxes:
+        class_id = int(box.cls[0])
+        rows.append(
+            {
+                "class": names[class_id],
+                "confidence": float(box.conf[0]),
+                "bbox": [float(value) for value in box.xyxy[0].tolist()],
+            }
+        )
+
+    return rows
+
+
 # ==========================================================
 # PAGE SETTINGS
 # ==========================================================
@@ -76,7 +92,7 @@ if uploaded_file:
 
     with col1:
         st.subheader("Original Image")
-        st.image(image, use_container_width=True)
+        st.image(image, width='stretch')
 
     try:
         # save temp image
@@ -103,7 +119,7 @@ if uploaded_file:
 
         with col2:
             st.subheader("Detected Damage")
-            st.image(plotted, use_container_width=True, channels="BGR")
+            st.image(plotted, width='stretch', channels="BGR")
 
         # ======================================================
         # ANALYSIS
@@ -113,34 +129,13 @@ if uploaded_file:
 
         boxes = results[0].boxes
         part_boxes = part_results[0].boxes if part_results else []
-        part_rows = []
+        part_rows = boxes_to_rows(part_boxes, part_model.names) if part_boxes else []
 
-        for part_box in part_boxes:
-            part_cls = int(part_box.cls[0])
-            part_conf = float(part_box.conf[0])
-            part_rows.append(
-                {
-                    "class": part_model.names[part_cls],
-                    "confidence": part_conf,
-                    "bbox": [float(value) for value in part_box.xyxy[0].tolist()],
-                }
-            )
+        if len(boxes) == 0:
+            st.info("No damage detected.")
+            st.stop()
 
-        detections = []
-
-        for box in boxes:
-            cls = int(box.cls[0])
-            conf = float(box.conf[0])
-            damage_label = model.names[cls]
-            bbox = box.xyxy[0].tolist()
-
-            detections.append(
-                {
-                    "class": damage_label,
-                    "confidence": conf,
-                    "bbox": bbox,
-                }
-            )
+        detections = boxes_to_rows(boxes, model.names)
 
         report = severity_engine.generate_severity_report(detections, image.width, image.height, part_rows)
 
@@ -151,10 +146,10 @@ if uploaded_file:
             {"metric": "detected_parts", "value": ", ".join(report["detected_parts"]) if report["detected_parts"] else "None"},
             {"metric": "critical_flags", "value": ", ".join(report["critical_flags"]) if report["critical_flags"] else "None"},
         ]
-        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+        st.dataframe(summary_rows, width='stretch', hide_index=True)
 
         st.markdown("### Damage Table")
-        st.dataframe(report["damage_table"], use_container_width=True, hide_index=True)
+        st.dataframe(report["damage_table"], width='stretch', hide_index=True)
 
     finally:
         if temp_path and os.path.exists(temp_path):
