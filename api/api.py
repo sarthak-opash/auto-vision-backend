@@ -86,7 +86,7 @@ async def upload_and_predict(file: UploadFile = File(...)):
         class_id = int(box.cls[0])
         detections.append(
             {
-                "damage_type": model.names[class_id],
+                "class": model.names[class_id],
                 "confidence": float(box.conf[0]),
                 "bbox": [float(value) for value in box.xyxy[0].tolist()],
             }
@@ -114,7 +114,7 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
         class_id = int(box.cls[0])
         detections.append(
             {
-                "damage_type": model.names[class_id],
+                "class": model.names[class_id],
                 "confidence": float(box.conf[0]),
                 "bbox": [float(value) for value in box.xyxy[0].tolist()],
             }
@@ -123,7 +123,7 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
     severity_report = generate_severity_report(detections, image.width, image.height)
 
     return {
-        #"predictions": detections,
+        # "predictions": detections,
         "severity_report": severity_report,
-        "count": len(severity_report),
+        "count": len(detections),
     }
