@@ -10,20 +10,23 @@
 # 4. Show Final Severity Output
 # ==========================================================
 
-import streamlit as st
-from ultralytics import YOLO
-from PIL import Image
-import tempfile
 import os
 import sys
+import tempfile
+import importlib
+from PIL import Image
+import streamlit as st
+from ultralytics import YOLO
 
 BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 if BASE_PATH not in sys.path:
-    sys.path.append(BASE_PATH)
+    sys.path.insert(0, BASE_PATH)
 
 # import your engine
-from train.severity import calculate_severity
+import train.severity as severity_engine
+severity_engine = importlib.reload(severity_engine)
+
 
 # ==========================================================
 # PAGE SETTINGS
@@ -41,12 +44,17 @@ st.write("Upload damaged car image to test severity engine.")
 # LOAD MODEL
 # ==========================================================
 MODEL_PATH = os.path.join(BASE_PATH, "runs", "damage", "weights", "best.pt")
+PART_MODEL_PATH = os.path.join(BASE_PATH, "runs", "parts", "weights", "best.pt")
 
 if not os.path.exists(MODEL_PATH):
     st.error("Damage model not found.")
     st.stop()
 
+if not os.path.exists(PART_MODEL_PATH):
+    st.warning("Part model not found. Severity will fall back to damage-box area only.")
+
 model = YOLO(MODEL_PATH)
+part_model = YOLO(PART_MODEL_PATH) if os.path.exists(PART_MODEL_PATH) else None
 
 # ==========================================================
 # UPLOAD IMAGE
@@ -62,6 +70,7 @@ uploaded_file = st.file_uploader(
 if uploaded_file:
 
     image = Image.open(uploaded_file).convert("RGB")
+    temp_path = None
 
     col1, col2 = st.columns(2)
 
@@ -69,96 +78,84 @@ if uploaded_file:
         st.subheader("Original Image")
         st.image(image, use_container_width=True)
 
-    # save temp image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-        image.save(tmp.name)
-        temp_path = tmp.name
+    try:
+        # save temp image
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            image.save(tmp.name)
+            temp_path = tmp.name
 
-    # prediction
-    results = model.predict(
-        source=temp_path,
-        conf=0.25,
-        imgsz=640
-    )
+        # prediction
+        results = model.predict(
+            source=temp_path,
+            conf=0.25,
+            imgsz=640
+        )
 
-    plotted = results[0].plot()
-
-    with col2:
-        st.subheader("Detected Damage")
-        st.image(plotted, use_container_width=True, channels="BGR")
-
-    # ======================================================
-    # ANALYSIS
-    # ======================================================
-    st.markdown("---")
-    st.subheader("🚨 Severity Analysis")
-
-    boxes = results[0].boxes
-
-    if len(boxes) == 0:
-        st.success("No damage detected.")
-
-    else:
-
-        final_score = 0
-        highest_level = "Minor"
-
-        # fake part for now (future part model)
-        default_part = "bumper"
-
-        severity_order = {
-            "Minor": 1,
-            "Moderate": 2,
-            "Severe": 3,
-            "Critical": 4
-        }
-
-        for i, box in enumerate(boxes):
-
-            cls = int(box.cls[0])
-            conf = float(box.conf[0])
-
-            damage_label = model.names[cls]
-
-            result = calculate_severity(
-                damage_label=damage_label,
-                part_label=default_part,
-                box=box,
-                image_width=image.width,
-                image_height=image.height,
-                total_damages=len(boxes)
+        part_results = []
+        if part_model is not None:
+            part_results = part_model.predict(
+                source=temp_path,
+                conf=0.25,
+                imgsz=640
             )
 
-            final_score += result["score"]
+        plotted = results[0].plot()
 
-            if severity_order[result["severity"]] > severity_order[highest_level]:
-                highest_level = result["severity"]
+        with col2:
+            st.subheader("Detected Damage")
+            st.image(plotted, use_container_width=True, channels="BGR")
 
-            st.write(f"### Damage {i+1}")
-            st.write(f"Damage Type: {damage_label}")
-            st.write(f"Confidence: {conf:.2f}")
-            st.write(f"Severity: {result['severity']}")
-            st.write(f"Score: {result['score']}")
-            st.write(f"Area: {result['damage_percent']}%")
-            st.markdown("---")
+        # ======================================================
+        # ANALYSIS
+        # ======================================================
+        st.markdown("---")
+        st.subheader("Severity Analysis")
 
-        # ==================================================
-        # FINAL RESULT
-        # ==================================================
-        st.subheader("📌 Final Vehicle Severity")
+        boxes = results[0].boxes
+        part_boxes = part_results[0].boxes if part_results else []
+        part_rows = []
 
-        if highest_level == "Minor":
-            st.success(f"{highest_level}")
+        for part_box in part_boxes:
+            part_cls = int(part_box.cls[0])
+            part_conf = float(part_box.conf[0])
+            part_rows.append(
+                {
+                    "class": part_model.names[part_cls],
+                    "confidence": part_conf,
+                    "bbox": [float(value) for value in part_box.xyxy[0].tolist()],
+                }
+            )
 
-        elif highest_level == "Moderate":
-            st.warning(f"{highest_level}")
+        detections = []
 
-        elif highest_level == "Severe":
-            st.error(f"{highest_level}")
+        for box in boxes:
+            cls = int(box.cls[0])
+            conf = float(box.conf[0])
+            damage_label = model.names[cls]
+            bbox = box.xyxy[0].tolist()
 
-        else:
-            st.error(f"{highest_level}")
+            detections.append(
+                {
+                    "class": damage_label,
+                    "confidence": conf,
+                    "bbox": bbox,
+                }
+            )
 
-        st.write(f"Total Combined Score: {final_score}")
+        report = severity_engine.generate_severity_report(detections, image.width, image.height, part_rows)
 
-    os.remove(temp_path)
+        st.markdown("### Severity Summary")
+        summary_rows = [
+            {"metric": "severity_score", "value": report["severity_score"]},
+            {"metric": "severity_level", "value": report["severity_level"]},
+            {"metric": "detected_parts", "value": ", ".join(report["detected_parts"]) if report["detected_parts"] else "None"},
+            {"metric": "critical_flags", "value": ", ".join(report["critical_flags"]) if report["critical_flags"] else "None"},
+        ]
+        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+
+        st.markdown("### Damage Table")
+        st.dataframe(report["damage_table"], use_container_width=True, hide_index=True)
+
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
