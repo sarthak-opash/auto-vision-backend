@@ -92,7 +92,7 @@ if uploaded_file:
 
     with col1:
         st.subheader("Original Image")
-        st.image(image, width='stretch')
+        st.image(image, use_container_width=True)
 
     try:
         # save temp image
@@ -119,7 +119,7 @@ if uploaded_file:
 
         with col2:
             st.subheader("Detected Damage")
-            st.image(plotted, width='stretch', channels="BGR")
+            st.image(plotted, use_container_width=True, channels="BGR")
 
         # ======================================================
         # ANALYSIS
@@ -146,10 +146,26 @@ if uploaded_file:
             {"metric": "detected_parts", "value": ", ".join(report["detected_parts"]) if report["detected_parts"] else "None"},
             {"metric": "critical_flags", "value": ", ".join(report["critical_flags"]) if report["critical_flags"] else "None"},
         ]
-        st.dataframe(summary_rows, width='stretch', hide_index=True)
+        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+
+        st.markdown("### Part-Wise Severity (for Cost Estimation)")
+        if report.get("part_severity"):
+            part_rows = []
+            for part_name, info in report["part_severity"].items():
+                part_rows.append({
+                    "part": part_name,
+                    "severity_score": info["severity_score"],
+                    "severity_level": info["severity_level"],
+                    "damage_count": info["damage_count"],
+                    "damage_types": ", ".join(info["damage_types"]),
+                    "max_area_ratio": info["max_area_ratio"],
+                })
+            st.dataframe(part_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No part-wise data available.")
 
         st.markdown("### Damage Table")
-        st.dataframe(report["damage_table"], width='stretch', hide_index=True)
+        st.dataframe(report["damage_table"], use_container_width=True, hide_index=True)
 
     finally:
         if temp_path and os.path.exists(temp_path):

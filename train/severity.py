@@ -1,97 +1,81 @@
-"""Severity scoring utilities for AutoClaim Vision.
+"""Severity scoring utilities for AutoClaim Vision (REFACTORED - STABLE)"""
 
-This module scores YOLO damage detections directly. The damage model already
-predicts labels like ``front-bumper-dent`` or ``scratch``, so the severity
-engine can use those labels as the damage source and optionally accept a
-separate part label later if a part model is added.
-"""
+from typing import List, Dict, Optional
 
 
+# ---------------- CONFIG ---------------- #
+
+# Part importance scores (raw 1-10 scale, normalized to [0,1] in scoring)
+# Matches the 17 part detection model classes (0-16)
 PART_SCORE = {
-    "Front-Windscreen-Damage": 10,
-    "Rear-windscreen-Damage": 9,
-    "Headlight-Damage": 9,
-    "Taillight-Damage": 9,
-    "tire flat": 10,
-    "pillar-dent": 9,
-    "roof-dent": 8,
-    "fender-dent": 7,
-    "quaterpanel-dent": 7,
-    "bonnet-dent": 7,
-    "boot-dent": 6,
-    "front-bumper-dent": 7,
-    "rear-bumper-dent": 6,
-    "doorouter-dent": 6,
-    "RunningBoard-Dent": 5,
-    "Sidemirror-Damage": 7,
-    "Signlight-Damage": 6,
-    "Bodypanel-Dent": 5,
-    "scratch": 3,
-    "crack": 5,
+    "Bodypanel-Dent": 5,            # 0
+    "Front-Windscreen-Damage": 10,  # 1
+    "Headlight-Damage": 9,          # 2
+    "Rear-windscreen-Damage": 9,    # 3
+    "RunningBoard-Dent": 5,         # 4
+    "Sidemirror-Damage": 7,         # 5
+    "Signlight-Damage": 6,          # 6
+    "Taillight-Damage": 9,          # 7
+    "bonnet-dent": 7,               # 8
+    "boot-dent": 6,                 # 9
+    "doorouter-dent": 6,            # 10
+    "fender-dent": 7,               # 11
+    "front-bumper-dent": 7,         # 12
+    "pillar-dent": 9,               # 13
+    "quaterpanel-dent": 7,          # 14
+    "rear-bumper-dent": 6,          # 15
+    "roof-dent": 8,                 # 16
 }
 
+# Damage type severity (already in [0,1] — NOT used as multipliers)
+# scratch(0.2) → dent(0.45) → crack(0.6) → damage(0.7) → flat(0.8)
 DAMAGE_SCORE = {
-    "dent": 1.0,
-    "damage": 1.2,
-    "scratch": 0.6,
-    "crack": 1.1,
-    "flat": 1.3,
+    "scratch": 0.2,
+    "dent": 0.45,
+    "crack": 0.6,
+    "damage": 0.7,
+    "flat": 0.8,
 }
 
-MAX_NORMALIZED_AREA = 0.35
-ZOOM_AREA_THRESHOLD = 0.5
-ZOOM_PENALTY_FACTOR = 0.5
-OVERLAP_IOU_THRESHOLD = 0.3
-OVERLAP_PENALTY_FACTOR = 0.65
-MULTI_DAMAGE_FACTOR = 0.08
-SAFETY_BONUS_FACTOR = 0.12
 
 
-def normalize_text(value):
+
+# ---------------- UTILS ---------------- #
+
+def normalize_text(value: str) -> str:
     return str(value).strip().lower().replace("_", "-")
 
 
-def get_match_score(text, table, default_value):
-    text_norm = normalize_text(text)
-
-    for key, value in table.items():
-        key_norm = normalize_text(key)
-        if key_norm == text_norm or key_norm in text_norm or text_norm in key_norm:
-            return value
-
-    return default_value
+def get_match_score(text: str, table: Dict, default):
+    text = normalize_text(text)
+    for key, val in table.items():
+        if normalize_text(key) in text:
+            return val
+    return default
 
 
-def get_area(bbox, img_w, img_h):
+def get_area(bbox, img_w: int, img_h: int) -> float:
     if bbox is None or img_w <= 0 or img_h <= 0:
         return 0.0
 
     x1, y1, x2, y2 = bbox
     box_area = max(x2 - x1, 0) * max(y2 - y1, 0)
-    img_area = img_w * img_h
-    if img_area == 0:
-        return 0.0
-    return box_area / img_area
+    return box_area / (img_w * img_h)
 
 
-def clamp(value, minimum, maximum):
-    return max(minimum, min(value, maximum))
-
-
-def get_bbox_area(bbox):
+def get_bbox_area(bbox) -> float:
     if bbox is None:
         return 0.0
-
     x1, y1, x2, y2 = bbox
     return max(x2 - x1, 0) * max(y2 - y1, 0)
 
 
-def get_intersection_area(bbox_a, bbox_b):
-    if bbox_a is None or bbox_b is None:
+def get_intersection_area(a, b) -> float:
+    if a is None or b is None:
         return 0.0
 
-    ax1, ay1, ax2, ay2 = bbox_a
-    bx1, by1, bx2, by2 = bbox_b
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
 
     x1 = max(ax1, bx1)
     y1 = max(ay1, by1)
@@ -101,40 +85,20 @@ def get_intersection_area(bbox_a, bbox_b):
     return max(x2 - x1, 0) * max(y2 - y1, 0)
 
 
-def get_iou(bbox_a, bbox_b):
-    if bbox_a is None or bbox_b is None:
-        return 0.0
-
-    intersection_area = get_intersection_area(bbox_a, bbox_b)
-    if intersection_area == 0:
-        return 0.0
-
-    area_a = get_bbox_area(bbox_a)
-    area_b = get_bbox_area(bbox_b)
-    union_area = area_a + area_b - intersection_area
-
-    if union_area <= 0:
-        return 0.0
-
-    return intersection_area / union_area
-
-
-def get_best_part_match(damage_bbox, part_detections):
-    best_part = None
+def get_best_part_match(bbox, part_detections):
+    best = None
     best_overlap = 0.0
 
     for part in part_detections or []:
-        part_bbox = part.get("bbox")
-        overlap = get_intersection_area(damage_bbox, part_bbox)
-
+        overlap = get_intersection_area(bbox, part.get("bbox"))
         if overlap > best_overlap:
             best_overlap = overlap
-            best_part = part
+            best = part
 
-    return best_part, best_overlap
+    return best
 
 
-def get_damage_type(label):
+def get_damage_type(label: str) -> str:
     label = normalize_text(label)
     if "scratch" in label:
         return "scratch"
@@ -147,207 +111,180 @@ def get_damage_type(label):
     return "damage"
 
 
-def _get_part_score(damage_label, part_label):
-    if part_label is not None:
-        matched_part = get_match_score(part_label, PART_SCORE, None)
-        if matched_part is not None:
-            return matched_part
+# ---------------- CORE SCORING ---------------- #
 
-    matched_damage = get_match_score(damage_label, PART_SCORE, None)
-    if matched_damage is not None:
-        return matched_damage
+def compute_damage_score(area: float, damage_type: str, confidence: float, part_label: str) -> float:
+    """
+    Compute a single damage detection score in [0, 1].
 
-    return 5
+    Uses bounded additive scoring with four normalized components:
+      - A: area factor (non-linear, zoom-bias resistant)
+      - T: damage type severity (in [0, 1])
+      - P: part importance (normalized from PART_SCORE)
+      - C: confidence (squared to suppress inflation)
+
+    Weights sum to 1.0 to keep output in [0, 1].
+    """
+
+    # ---- AREA (non-linear to resist zoom bias)
+    # Higher K = slower growth, exponent > 1 compresses large areas
+    K = 0.25
+    A = (area / (area + K)) ** 1.2
+
+    # ---- DAMAGE TYPE (already in [0, 1])
+    T = DAMAGE_SCORE.get(damage_type, 0.45)
+
+    # ---- PART IMPORTANCE (normalized to [0, 1])
+    raw_part = get_match_score(part_label, PART_SCORE, 5)
+    P = raw_part / 10.0
+
+    # ---- CONFIDENCE (squared to suppress inflation)
+    C = confidence ** 2
+
+    # ---- BOUNDED ADDITIVE SCORE
+    # Area-dominant: area drives the score, type differentiates severity
+    # Weights: area=0.40, type=0.30, part=0.15, confidence=0.15
+    score = 0.40 * A + 0.30 * T + 0.15 * P + 0.15 * C
+
+    return max(0.0, min(score, 1.0))
 
 
-def score_to_level(score, normalized=False):
-    if normalized:
-        if score <= 25:
-            return "Minor"
-        if score <= 50:
-            return "Moderate"
-        if score <= 75:
-            return "Severe"
-        return "Critical"
+def aggregate_part(scores: List[float]) -> float:
+    """
+    Aggregate multiple damage scores for one part.
 
-    if score <= 5:
-        return "Minor"
-    if score <= 10:
-        return "Moderate"
-    if score <= 15:
-        return "Severe"
-    return "Critical"
-
-
-def normalize_score(raw_score, max_possible=20):
-    score = (raw_score / max_possible) * 100
-    return min(score, 100)
-
-
-def damage_portion_from_overlap(damage_bbox, part_bbox):
-    if damage_bbox is None or part_bbox is None:
+    Uses: S_part = 1 - Π(1 - S_damage)
+    With penalty for excessive small damages to prevent inflation.
+    """
+    if not scores:
         return 0.0
 
-    part_area = get_bbox_area(part_bbox)
-    if part_area == 0:
-        return 0.0
+    # Union-style aggregation: 1 - product(1 - s)
+    product = 1.0
+    for s in scores:
+        product *= (1.0 - s)
 
-    overlap_area = get_intersection_area(damage_bbox, part_bbox)
-    return min(overlap_area / part_area, 1.0)
+    part_score = 1.0 - product
 
+    # Penalty: diminishing returns after 3 detections on same part
+    n = len(scores)
+    if n > 3:
+        penalty = 0.90 ** (n - 3)
+        part_score *= penalty
 
-def corrected_area_from_bbox(damage_bbox, img_w, img_h):
-    normalized_area = get_area(damage_bbox, img_w, img_h)
-    if normalized_area <= 0:
-        return 0.0
-
-    clipped_area = clamp(normalized_area, 0.0, MAX_NORMALIZED_AREA)
-    corrected_area = clipped_area ** 0.5
-
-    if normalized_area > ZOOM_AREA_THRESHOLD:
-        zoom_penalty = ZOOM_PENALTY_FACTOR
-        corrected_area *= zoom_penalty
-
-    return clamp(corrected_area, 0.0, 1.0)
+    return max(0.0, min(part_score, 1.0))
 
 
-def _severity_level_from_score(score):
-    if score <= 20:
+def severity_level(score: float) -> str:
+    if score < 25:
         return "Low"
-    if score <= 50:
+    if score < 50:
         return "Medium"
-    if score <= 75:
+    if score < 75:
         return "High"
     return "Critical"
 
 
-def _is_critical_part(label):
-    label_norm = normalize_text(label)
-    return any(
-        token in label_norm
-        for token in [
-            "windscreen",
-            "glass",
-            "tire",
-            "headlight",
-            "light",
-            "pillar",
-            "roof",
-        ]
-    )
+# ---------------- MAIN ---------------- #
 
+def generate_severity_report(
+    detections: List[Dict],
+    img_w: int,
+    img_h: int,
+    part_detections: Optional[List[Dict]] = None,
+) -> Dict:
 
-def _dedupe_preserve_order(values):
-    return list(dict.fromkeys(values))
-
-
-def _overlap_penalty(current_bbox, previous_boxes):
-    max_iou = 0.0
-
-    for previous_bbox in previous_boxes:
-        max_iou = max(max_iou, get_iou(current_bbox, previous_bbox))
-
-    if max_iou < OVERLAP_IOU_THRESHOLD:
-        return 1.0
-
-    return max(0.4, 1.0 - (max_iou * OVERLAP_PENALTY_FACTOR))
-
-
-def generate_severity_report(detections, img_w, img_h, part_detections=None):
     items = []
+    part_scores_map = {}       # part_label -> [damage_scores]
+    part_damages_map = {}      # part_label -> [damage_types]
+    part_areas_map = {}        # part_label -> [areas]
     detected_parts = []
     critical_flags = []
-    total_raw = 0.0
-    previous_damage_boxes = []
 
     for det in detections or []:
-        damage_label = det.get("class")
-        confidence = float(det.get("confidence", 1.0) or 1.0)
-        damage_bbox = det.get("bbox")
+        label = det.get("class")
+        confidence = float(det.get("confidence", 1.0))
+        bbox = det.get("bbox")
 
-        # Find matching part from part detections
-        matched_part, _ = get_best_part_match(damage_bbox, part_detections)
-        part_label = matched_part["class"] if matched_part else damage_label
-        part_bbox = matched_part["bbox"] if matched_part else None
+        matched = get_best_part_match(bbox, part_detections)
+        part_label = matched["class"] if matched else label
+        part_bbox = matched["bbox"] if matched else None
 
         detected_parts.append(part_label)
 
-        # Core scoring: importance × type_factor × damage_portion × confidence
-        part_importance = _get_part_score(damage_label, part_label)
-        damage_type = get_damage_type(damage_label)
-        type_factor = DAMAGE_SCORE[damage_type]
-        corrected_area = corrected_area_from_bbox(damage_bbox, img_w, img_h)
-        overlap_portion = damage_portion_from_overlap(damage_bbox, part_bbox)
-        effective_area = overlap_portion if overlap_portion > 0 else corrected_area
-        overlap_factor = _overlap_penalty(damage_bbox, previous_damage_boxes)
-        previous_damage_boxes.append(damage_bbox)
+        # area — use overlap ratio if part detected, else image-relative
+        if part_bbox:
+            part_area = get_bbox_area(part_bbox)
+            overlap = get_intersection_area(bbox, part_bbox)
+            area = overlap / part_area if part_area > 0 else 0.0
+        else:
+            area = get_area(bbox, img_w, img_h)
 
-        # Calculate raw contribution
-        raw_contribution = (
-            part_importance
-            * type_factor
-            * effective_area
-            * confidence
-            * overlap_factor
-            * 10
-        )
+        damage_type = get_damage_type(label)
 
-        total_raw += raw_contribution
+        score = compute_damage_score(area, damage_type, confidence, part_label)
 
-        items.append(
-            {
-                "part": part_label,
-                "damage_type": damage_type,
-                "confidence": round(confidence, 2),
-                "corrected_area": round(effective_area, 4),
-                "raw_contribution": raw_contribution,
-            }
-        )
+        part_scores_map.setdefault(part_label, []).append(score)
+        part_damages_map.setdefault(part_label, []).append(damage_type)
+        part_areas_map.setdefault(part_label, []).append(area)
 
-        # Check for critical flags
-        if _is_critical_part(part_label):
-            critical_flags.append(f"Safety-critical part affected: {part_label}")
+        items.append({
+            "part": part_label,
+            "damage_type": damage_type,
+            "confidence": round(confidence, 2),
+            "area": round(area, 4),
+            "damage_score": round(score, 4),
+        })
 
         if damage_type == "flat":
             critical_flags.append("Flat tire detected")
 
-        if damage_type == "crack" and "glass" in normalize_text(part_label):
-            critical_flags.append("Glass crack detected")
-
-    # Multi-damage bonus
-    if len(detections or []) >= 3:
-        total_raw *= 1.0 + MULTI_DAMAGE_FACTOR
-        critical_flags.append("Multiple damages detected")
-
-    # Calculate final severity score
-    severity_score = round(min(total_raw * 10, 100), 2)
-
-    if any(_is_critical_part(part) for part in detected_parts):
-        severity_score = round(min(severity_score * (1.0 + SAFETY_BONUS_FACTOR), 100), 2)
-        critical_flags.append("Safety-critical part detected")
-
-    severity_level = _severity_level_from_score(severity_score)
-
-    # Calculate contribution percentages
-    if total_raw > 0:
-        for item in items:
-            share = item["raw_contribution"] / total_raw
-            item["severity_contribution"] = round(share * severity_score, 2)
-            del item["raw_contribution"]
-    else:
-        for item in items:
-            item["severity_contribution"] = 0.0
-            del item["raw_contribution"]
-
-    critical_flags = _dedupe_preserve_order(critical_flags)
-
-    return {
-        "severity_score": severity_score,
-        "severity_level": severity_level,
-        "detected_parts": _dedupe_preserve_order(detected_parts),
-        "damage_table": items,
-        "critical_flags": critical_flags,
+    # ---- AGGREGATE per part ----
+    part_agg_scores = {
+        p: aggregate_part(s) for p, s in part_scores_map.items()
     }
 
+    # ---- BUILD part_severity (for cost estimation) ----
+    part_severity = {}
+    for part_label, agg_score in part_agg_scores.items():
+        ps = round(agg_score * 100.0, 2)
+        damage_types = list(dict.fromkeys(part_damages_map.get(part_label, [])))
+        max_area = max(part_areas_map.get(part_label, [0.0]))
 
-# End of module
+        part_severity[part_label] = {
+            "severity_score": ps,
+            "severity_level": severity_level(ps),
+            "damage_count": len(part_scores_map[part_label]),
+            "damage_types": damage_types,
+            "max_area_ratio": round(max_area, 4),
+        }
+
+    # ---- OVERALL severity ----
+    if part_agg_scores:
+        max_score = max(part_agg_scores.values())
+        avg_score = sum(part_agg_scores.values()) / len(part_agg_scores)
+
+        # Blend: 60% max + 40% average — dominant damage drives the score
+        raw = 0.6 * max_score + 0.4 * avg_score
+
+        # Multi-part bonus: more damaged parts = more severe
+        n_parts = len(part_agg_scores)
+        if n_parts > 1:
+            part_bonus = min(0.15, 0.06 * (n_parts - 1) ** 0.5)
+            raw = min(1.0, raw + part_bonus)
+
+        # Scale to 0-100 with power 1.25 for spread
+        severity = raw * 100.0
+        severity = (severity ** 1.25) / (100.0 ** 0.25)
+        severity = min(severity, 100.0)
+    else:
+        severity = 0.0
+
+    return {
+        "severity_score": round(severity, 2),
+        "severity_level": severity_level(severity),
+        "detected_parts": list(dict.fromkeys(detected_parts)),
+        "damage_table": items,
+        "critical_flags": list(set(critical_flags)),
+        "part_severity": part_severity,
+    }
