@@ -3,32 +3,27 @@
 from typing import List, Dict, Optional
 
 
-# ---------------- CONFIG ---------------- #
-
-# Part importance scores (raw 1-10 scale, normalized to [0,1] in scoring)
-# Matches the 17 part detection model classes (0-16)
+# 17 class
 PART_SCORE = {
-    "Bodypanel-Dent": 5,            # 0
-    "Front-Windscreen-Damage": 10,  # 1
-    "Headlight-Damage": 9,          # 2
-    "Rear-windscreen-Damage": 9,    # 3
-    "RunningBoard-Dent": 5,         # 4
-    "Sidemirror-Damage": 7,         # 5
-    "Signlight-Damage": 6,          # 6
-    "Taillight-Damage": 9,          # 7
-    "bonnet-dent": 7,               # 8
-    "boot-dent": 6,                 # 9
-    "doorouter-dent": 6,            # 10
-    "fender-dent": 7,               # 11
-    "front-bumper-dent": 7,         # 12
-    "pillar-dent": 9,               # 13
-    "quaterpanel-dent": 7,          # 14
-    "rear-bumper-dent": 6,          # 15
-    "roof-dent": 8,                 # 16
+    "Bodypanel-Dent": 5,            
+    "Front-Windscreen-Damage": 10,  
+    "Headlight-Damage": 9,          
+    "Rear-windscreen-Damage": 9,    
+    "RunningBoard-Dent": 5,         
+    "Sidemirror-Damage": 7,         
+    "Signlight-Damage": 6,          
+    "Taillight-Damage": 9,          
+    "bonnet-dent": 7,               
+    "boot-dent": 6,                 
+    "doorouter-dent": 6,            
+    "fender-dent": 7,              
+    "front-bumper-dent": 7,         
+    "pillar-dent": 9,               
+    "quaterpanel-dent": 7,          
+    "rear-bumper-dent": 6,          
+    "roof-dent": 8,                 
 }
 
-# Damage type severity (already in [0,1] — NOT used as multipliers)
-# scratch(0.2) → dent(0.45) → crack(0.6) → damage(0.7) → flat(0.8)
 DAMAGE_SCORE = {
     "scratch": 0.2,
     "dent": 0.45,
@@ -37,10 +32,6 @@ DAMAGE_SCORE = {
     "flat": 0.8,
 }
 
-
-
-
-# ---------------- UTILS ---------------- #
 
 def normalize_text(value: str) -> str:
     return str(value).strip().lower().replace("_", "-")
@@ -111,8 +102,6 @@ def get_damage_type(label: str) -> str:
     return "damage"
 
 
-# ---------------- CORE SCORING ---------------- #
-
 def compute_damage_score(area: float, damage_type: str, confidence: float, part_label: str) -> float:
     """
     Compute a single damage detection score in [0, 1].
@@ -138,11 +127,10 @@ def compute_damage_score(area: float, damage_type: str, confidence: float, part_
     raw_part = get_match_score(part_label, PART_SCORE, 5)
     P = raw_part / 10.0
 
-    # ---- CONFIDENCE (squared to suppress inflation)
+    # ---- CONFIDENCE 
     C = confidence ** 2
 
     # ---- BOUNDED ADDITIVE SCORE
-    # Area-dominant: area drives the score, type differentiates severity
     # Weights: area=0.40, type=0.30, part=0.15, confidence=0.15
     score = 0.40 * A + 0.30 * T + 0.15 * P + 0.15 * C
 
@@ -239,12 +227,12 @@ def generate_severity_report(
         if damage_type == "flat":
             critical_flags.append("Flat tire detected")
 
-    # ---- AGGREGATE per part ----
+    # AGGREGATE per part
     part_agg_scores = {
         p: aggregate_part(s) for p, s in part_scores_map.items()
     }
 
-    # ---- BUILD part_severity (for cost estimation) ----
+    # for cost estimation
     part_severity = {}
     for part_label, agg_score in part_agg_scores.items():
         ps = round(agg_score * 100.0, 2)
@@ -259,7 +247,7 @@ def generate_severity_report(
             "max_area_ratio": round(max_area, 4),
         }
 
-    # ---- OVERALL severity ----
+    # OVERALL severity 
     if part_agg_scores:
         max_score = max(part_agg_scores.values())
         avg_score = sum(part_agg_scores.values()) / len(part_agg_scores)
