@@ -18,13 +18,34 @@ if str(REPO_ROOT) not in sys.path:
 from train.severity import generate_severity_report
 
 MODEL_PATH = REPO_ROOT / "runs" / "damage" / "weights" / "best.pt"
+PART_MODEL_PATH = REPO_ROOT / "runs" / "parts" / "weights" / "best.pt"
 
 
 @lru_cache(maxsize=1)
 def get_model() -> YOLO:
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Model not found at: {MODEL_PATH}")
+        raise FileNotFoundError(f"Damage model not found at: {MODEL_PATH}")
     return YOLO(str(MODEL_PATH))
+
+
+@lru_cache(maxsize=1)
+def get_part_model() -> YOLO | None:
+    if not PART_MODEL_PATH.exists():
+        return None
+    return YOLO(str(PART_MODEL_PATH))
+
+
+def boxes_to_rows(boxes, names) -> list[dict]:
+    """Convert YOLO boxes to list of detection dicts."""
+    rows = []
+    for box in boxes:
+        class_id = int(box.cls[0])
+        rows.append({
+            "class": names[class_id],
+            "confidence": float(box.conf[0]),
+            "bbox": [float(v) for v in box.xyxy[0].tolist()],
+        })
+    return rows
 
 
 async def read_image_upload(file: UploadFile) -> tuple[Image.Image, bytes]:
@@ -79,18 +100,7 @@ async def upload_and_predict(file: UploadFile = File(...)):
 
     model = get_model()
     results = model.predict(source=image, conf=0.25)
-    boxes = results[0].boxes
-
-    detections = []
-    for box in boxes:
-        class_id = int(box.cls[0])
-        detections.append(
-            {
-                "class": model.names[class_id],
-                "confidence": float(box.conf[0]),
-                "bbox": [float(value) for value in box.xyxy[0].tolist()],
-            }
-        )
+    detections = boxes_to_rows(results[0].boxes, model.names)
 
     return {
         "predictions": detections,
@@ -105,25 +115,25 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
 
     image, content = await read_image_upload(file)
 
+    # ---- Damage detection ----
     model = get_model()
-    results = model.predict(source=image, conf=0.25)
-    boxes = results[0].boxes
+    results = model.predict(source=image, conf=0.25, imgsz=640)
+    detections = boxes_to_rows(results[0].boxes, model.names)
 
-    detections = []
-    for box in boxes:
-        class_id = int(box.cls[0])
-        detections.append(
-            {
-                "class": model.names[class_id],
-                "confidence": float(box.conf[0]),
-                "bbox": [float(value) for value in box.xyxy[0].tolist()],
-            }
-        )
+    # ---- Part detection ----
+    part_detections = []
+    part_model = get_part_model()
+    if part_model is not None:
+        part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
+        part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
 
-    severity_report = generate_severity_report(detections, image.width, image.height)
+    # ---- Severity report ----
+    severity_report = generate_severity_report(
+        detections, image.width, image.height, part_detections
+    )
+    severity_report.pop("damage_table", None)
 
     return {
-        # "predictions": detections,
         "severity_report": severity_report,
         "count": len(detections),
     }

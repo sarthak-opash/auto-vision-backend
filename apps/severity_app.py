@@ -164,8 +164,8 @@ if uploaded_file:
         else:
             st.info("No part-wise data available.")
 
-        st.markdown("### Damage Table")
-        st.dataframe(report["damage_table"], use_container_width=True, hide_index=True)
+        # st.markdown("### Damage Table")
+        # st.dataframe(report["damage_table"], use_container_width=True, hide_index=True)
 
     finally:
         if temp_path and os.path.exists(temp_path):
