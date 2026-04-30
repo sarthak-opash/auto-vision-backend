@@ -1,0 +1,5 @@
+train: ../datasets/damage_seg_v1/train/images
+val: ../datasets/damage_seg_v1/valid/images
+
+nc: 6
+names: ['crack', 'dent', 'glass shatter', 'lamp broken', 'scratch', 'tire flat']
