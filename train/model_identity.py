@@ -528,7 +528,7 @@ def train_model():
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_acc': val_acc,
                 'val_loss': val_loss,
-            }, config.checkpoint_dir / 'best_model_final.pth')
+            }, config.checkpoint_dir / 'best_model_final.pt')
             print(f"✓ Saved best model (Val Acc: {val_acc:.2f}%)")
             
             # Save detailed results for best model
