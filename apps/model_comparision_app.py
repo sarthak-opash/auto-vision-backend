@@ -15,7 +15,8 @@ st.sidebar.header("Model Settings")
 uploaded_models = st.sidebar.file_uploader(
     "Upload YOLO Models (.pt)", 
     type=["pt"], 
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    max_upload_size=500
 )
 
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.25)
