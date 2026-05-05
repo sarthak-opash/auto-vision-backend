@@ -60,6 +60,7 @@ st.write("Upload damaged car image to test severity engine.")
 # LOAD MODEL
 # ==========================================================
 MODEL_PATH = os.path.join(BASE_PATH, "runs", "damage", "weights", "best.pt")
+# MODEL_PATH = os.path.join(BASE_PATH, "runs", "damage_seg_v1", "epoch_150", "weights", "best.pt")
 PART_MODEL_PATH = os.path.join(BASE_PATH, "runs", "parts", "weights", "best.pt")
 
 if not os.path.exists(MODEL_PATH):
