@@ -248,49 +248,49 @@ def load_engines():
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
-    '<div style="padding:1.2rem 0 0.4rem">'
-    '<div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;'
+    '<div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800;'
     'color:#f0f0f8;letter-spacing:-0.02em">AutoClaim<span style="color:#ff4b3c"> Vision</span></div>'
     
-    '<div style="font-size:0.72rem;color:#444466;margin-top:2px;margin-bottom:1rem">'
+    '<div style=font-family:Syne,sans-serif;font-size:0.9rem;color:#444466;margin-top:2px;margin-bottom:1rem">'
     'AI-Powered Car Damage Assessment</div>'
-    
-    '<ul style="list-style:none;padding-left:0;margin:0;font-size:0.95rem;color:#9aa0b5;">'
+
+    '</div>',
+    unsafe_allow_html=True
+    )
+    st.divider()
+    st.markdown(
+        '<div style="font-family:Syne,sans-serif;font-size:1rem;color:#444466;'
+        'margin-bottom:10px">Pipeline</div>',
+        unsafe_allow_html=True
+    )
+    for i, stage in enumerate(["Damage Detection", "Severity Scoring", "Cost Estimation", "PDF Report"], 1):
+        st.markdown(
+            f'<div class="pipe-step", style="font-family:Syne,sans-serif;"><span class="pipe-num">{i}</span><span>{stage}</span></div>',
+            unsafe_allow_html=True
+        )
+    damage_conf = 0.25
+
+    st.divider()
+    st.markdown(
+    '<div style="font-family:Syne,sans-serif;font-size:1rem;color:#444466;margin-top:2px;margin-bottom:1rem">'
+    'Developed By :- '
+    '</div>'
+
+    '<div style="font-family:Syne,sans-serif;>'
+    '<ul list-style="dot">'
     
     '<li style="margin-bottom:6px;">'
-    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
     'Manav Katrodiya</li>'
     
     '<li style="margin-bottom:6px;">'
-    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
     'Dev Charan</li>'
     
-    '<li>'
-    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
+    '<li style="margin-bottom:6px;">'
     'Sarthak Nimbark</li>'
     
     '</ul></div>',
     unsafe_allow_html=True
     )
-    st.divider()
-    st.markdown(
-        '<div style="font-size:0.65rem;letter-spacing:0.18em;color:#444466;'
-        'text-transform:uppercase;margin-bottom:10px">Pipeline</div>',
-        unsafe_allow_html=True
-    )
-    for i, stage in enumerate(["Damage Detection", "Severity Scoring", "Cost Estimation", "PDF Report"], 1):
-        st.markdown(
-            f'<div class="pipe-step"><span class="pipe-num">{i}</span><span>{stage}</span></div>',
-            unsafe_allow_html=True
-        )
-    st.divider()
-    st.markdown(
-        '<div style="font-size:0.65rem;letter-spacing:0.18em;color:#444466;'
-        'text-transform:uppercase;margin-bottom:10px">Settings</div>',
-        unsafe_allow_html=True
-    )
-    damage_conf = st.slider("Confidence threshold", 0.15, 0.80, 0.25, 0.05,
-                            help="Lower = more detections, more false positives")
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ try:
         m1.metric("Damages found",  len(detections))
         m2.metric("Parts affected", len(sev_report["detected_parts"]))
         m3, m4 = st.columns(2)
-        m3.metric("Severity score", f"{score} / 100")
+        m3.metric("Severity Level", f"{lvl}")
         m4.metric("Grand total",    f"₹ {cost_report['grand_total']:,.0f}")
         st.markdown("<br>", unsafe_allow_html=True)
         if cost_report["grand_total"] > 0:
