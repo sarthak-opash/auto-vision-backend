@@ -344,7 +344,7 @@ try:
     col_img, col_summary = st.columns([1, 1], gap="large")
     with col_img:
         st.markdown('<div class="sec-head">Uploaded Image</div>', unsafe_allow_html=True)
-        st.image(image, use_container_width=True)
+        st.image(image, width='stretch')
 
     with st.spinner("Analysing image…"):
         dmg_results = damage_model.predict(source=tmp_path, conf=damage_conf, imgsz=640)
@@ -411,7 +411,7 @@ try:
         c1, c2 = st.columns([1, 1], gap="large")
         with c1:
             st.markdown('<div class="sec-head">Annotated Image</div>', unsafe_allow_html=True)
-            st.image(cv2.cvtColor(ann_bgr, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.image(cv2.cvtColor(ann_bgr, cv2.COLOR_BGR2RGB), width='stretch')
         with c2:
             st.markdown(
                 f'<div class="sec-head">Detections '
@@ -460,7 +460,7 @@ try:
                         "Damage Count": info["damage_count"],
                         "Damage Types": ", ".join(info["damage_types"]),
                     })
-                st.dataframe(rows, use_container_width=True, hide_index=True)
+                st.dataframe(rows, width='stretch', hide_index=True)
             else:
                 st.info("No part-wise data available.")
         with sr:
@@ -495,7 +495,7 @@ try:
                     "Repair Action": item["repair_action"],
                     "Est. Cost (₹)": f'₹ {item["part_cost"]:,.0f}',
                 })
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width='stretch', hide_index=True)
             st.markdown("<br>", unsafe_allow_html=True)
             tc1, tc2, tc3 = st.columns(3)
             tc1.metric("Parts Total",  f"₹ {cost_report['parts_total']:,.0f}")
@@ -516,7 +516,7 @@ try:
                 'severity breakdown, cost estimate and disclaimer.</div>',
                 unsafe_allow_html=True
             )
-            if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
+            if st.button("📄 Generate PDF Report", type="primary", width='stretch'):
                 with st.spinner("Building PDF…"):
                     try:
                         pdf_bytes = rep_eng.generate_report(
@@ -531,7 +531,7 @@ try:
                             data=pdf_bytes,
                             file_name=filename,
                             mime="application/pdf",
-                            use_container_width=True,
+                            width='stretch',
                         )
                     except ImportError:
                         st.error("Install fpdf2:  `pip install fpdf2`")
