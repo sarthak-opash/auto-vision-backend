@@ -248,12 +248,29 @@ def load_engines():
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
-        '<div style="padding:1.2rem 0 0.4rem">'
-        '<div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;'
-        'color:#f0f0f8;letter-spacing:-0.02em">AutoClaim<span style="color:#ff4b3c"> Vision</span></div>'
-        '<div style="font-size:0.72rem;color:#444466;margin-top:2px;margin-bottom:1rem">'
-        'AI-Powered Car Damage Assessment</div></div>',
-        unsafe_allow_html=True
+    '<div style="padding:1.2rem 0 0.4rem">'
+    '<div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;'
+    'color:#f0f0f8;letter-spacing:-0.02em">AutoClaim<span style="color:#ff4b3c"> Vision</span></div>'
+    
+    '<div style="font-size:0.72rem;color:#444466;margin-top:2px;margin-bottom:1rem">'
+    'AI-Powered Car Damage Assessment</div>'
+    
+    '<ul style="list-style:none;padding-left:0;margin:0;font-size:0.95rem;color:#9aa0b5;">'
+    
+    '<li style="margin-bottom:6px;">'
+    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
+    'Manav Katrodiya</li>'
+    
+    '<li style="margin-bottom:6px;">'
+    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
+    'Dev Charan</li>'
+    
+    '<li>'
+    '<span style="font-size:0.72rem;color:#ff4b3c;margin-right:8px;">●</span>'
+    'Sarthak Nimbark</li>'
+    
+    '</ul></div>',
+    unsafe_allow_html=True
     )
     st.divider()
     st.markdown(
@@ -274,11 +291,6 @@ with st.sidebar:
     )
     damage_conf = st.slider("Confidence threshold", 0.15, 0.80, 0.25, 0.05,
                             help="Lower = more detections, more false positives")
-    st.divider()
-    st.caption("Model: YOLOv11  •  17-class damage dataset")
-    st.caption("Costs: Indian market rates 2024–25")
-    st.divider()
-    st.caption("Manav Katrodiya · Dev Charan · Sarthak Nimbark")
 
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
