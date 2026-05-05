@@ -5,14 +5,14 @@ def train_model():
     model = YOLO("yolo11s-seg.pt")
 
     model.train(
-        data="cardd_segmentation_dataset/data.yaml",
+        data="../yaml/damage_seg_v1.yaml",
 
         # ── Core Training ──────────────────────────────────────────
         epochs=150,
         imgsz=640,
         batch=12,
         device=0,
-        workers=3,
+        workers=2,
 
         # ── Optimizer ─────────────────────────────────────────────
         optimizer="AdamW",
