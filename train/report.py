@@ -178,19 +178,46 @@ def generate_report(
     pdf.cell(90, 9, _clean(f"  Overall Severity: {sev_level}  ({sev_score}/100)"), fill=True)
     pdf.ln(6)
     pdf.set_text_color(*C_DARK)
-    pdf.ln(3)
+    pdf.ln(5)
 
     sec = 1
-
+    
     # ── ANNOTATED IMAGE ───────────────────────────────────────────────────────
     if annotated_image_path and Path(annotated_image_path).exists():
         _section(pdf, f"{sec}. Annotated Damage Image")
         sec += 1
-        img_w = 165
-        pdf.image(annotated_image_path, x=(210 - img_w) / 2, w=img_w)
-        pdf.ln(3)
+        
+        # 1. Calculate available gap on the current page
+        gap_to_footer = pdf.h - pdf.get_y() - pdf.b_margin - 10
+        target_w = 165  # Standard width in mm
+
+        # 2. Get original image dimensions to calculate its natural height at target_w
+        from PIL import Image as PILImage
+        with PILImage.open(annotated_image_path) as img:
+            orig_w, orig_h = img.size
+            aspect_ratio = orig_h / orig_w
+            # Height the image wants to be if it was 165mm wide
+            natural_height = target_w * aspect_ratio
+
+        # 3. Decision Logic: Only shrink if it's too tall for the current page
+        if natural_height > gap_to_footer:
+            # IMAGE IS TOO LARGE: Shrink height to fit exactly on the current page
+            pdf.image(annotated_image_path, x=(210 - target_w) / 2, h=gap_to_footer)
+            # Since it filled the rest of the page, start fresh on the next page
+            pdf.add_page()
+        else:
+            # IMAGE FITS NORMALLY: Keep its natural size
+            pdf.image(annotated_image_path, x=(210 - target_w) / 2, w=target_w)
+            pdf.ln(5)
 
     # ── DAMAGE DETECTIONS ─────────────────────────────────────────────────────
+    damage_table = severity_result.get("damage_table", [])
+    # Header (10) + Table Head (6) + Rows (count * 5) + Summary text (5) + Buffer (10)
+    estimated_h = 10 + 6 + (len(damage_table) * 5) + 5 + 10
+    remaining = pdf.h - pdf.get_y() - pdf.b_margin
+
+    if remaining < estimated_h:
+        pdf.add_page()
     _section(pdf, f"{sec}. Damage Detections")
     sec += 1
 
@@ -270,6 +297,10 @@ def generate_report(
     # ── CRITICAL FLAGS ────────────────────────────────────────────────────────
     critical_flags = severity_result.get("critical_flags", [])
     if critical_flags:
+        # Header (10) + Flags (count * 6) + Buffer (5)
+        estimated_h = 10 + (len(critical_flags) * 6) + 5
+        if (pdf.h - pdf.get_y() - pdf.b_margin) < estimated_h:
+            pdf.add_page()
         _section(pdf, f"{sec}. Critical Flags")
         sec += 1
         pdf.set_fill_color(255, 235, 235)
@@ -339,6 +370,9 @@ def generate_report(
     pdf.ln(3)
 
     # ── DISCLAIMER ────────────────────────────────────────────────────────────
+    # Header (10) + Multi-cell text (approx 25)
+    if (pdf.h - pdf.get_y() - pdf.b_margin) < 35:
+        pdf.add_page()
     _section(pdf, f"{sec}. Disclaimer")
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(90, 90, 90)
