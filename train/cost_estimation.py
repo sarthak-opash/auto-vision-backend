@@ -37,43 +37,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(name)s | %(mes
 logger = logging.getLogger("cost_estimation")
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Part base price (INR) — 2024-25 Indian OEM/authorised workshop market ──────
-# Full repair/replacement cost for each part at 100% damage.
-# Source: mid-segment sedan (Swift, i20, City equivalent).
-PART_BASE_PRICE: Dict[str, float] = {
-    "Bodypanel-Dent":           8_000,
-    "Front-Windscreen-Damage": 20_000,
-    "Headlight-Damage":        14_000,
-    "Rear-windscreen-Damage":  16_000,
-    "RunningBoard-Dent":        5_000,
-    "Sidemirror-Damage":        7_500,
-    "Signlight-Damage":         3_500,
-    "Taillight-Damage":        10_000,
-    "bonnet-dent":             18_000,
-    "boot-dent":               14_000,
-    "doorouter-dent":          16_000,
-    "fender-dent":             12_000,
-    "front-bumper-dent":       10_000,
-    "pillar-dent":             45_000,   # structural — cabin integrity
-    "quaterpanel-dent":        13_000,
-    "rear-bumper-dent":         8_500,
-    "roof-dent":               22_000,
+DAMAGE_TYPE_BASE_PRICE: Dict[str, float] = {
+    "scratch":  6_000,    # Surface scratch — polish, compound, repaint
+    "dent":    15_000,    # Panel dent — PDR / filler / repaint
+    "crack":   25_000,    # Crack — structural filler, sealing, repaint
+    "damage":  35_000,    # Generic structural damage — panel work + repaint
+    "flat":    12_000,    # Flat tyre — tyre replacement + wheel alignment
 }
 
-DEFAULT_PART_PRICE: float = 10_000   # fallback when part not in table
+DEFAULT_BASE_PRICE: float = 10_000   # fallback for unknown damage type
 
-# ── Damage type factor — what fraction of the part base price this damage
-#    type typically costs to repair (0.0 – 1.0 scale).
-#    scratch < dent < crack < damage (severity-ordered).
-DAMAGE_TYPE_FACTOR: Dict[str, float] = {
-    "scratch": 0.25,   # surface polish / touch-up  → 25% of part cost
-    "dent":    0.60,   # panel repair / PDR / filler → 60% of part cost
-    "crack":   0.85,   # structural filler + repaint → 85% of part cost
-    "damage":  1.00,   # full replacement / major work → 100% of part cost
-    "flat":    0.50,   # tyre + alignment              → 50% of part cost
-}
-
-DEFAULT_BASE_PRICE: float = 10_000   # final fallback
 
 
 REPAIR_MULTIPLIER: Dict[str, float] = {
@@ -98,40 +71,19 @@ LABOR_OVERHEAD: float = 0.20   # 20%
 #  HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_base_price(part_name: str, damage_type: str) -> float:
+def _get_base_price(damage_type: str) -> float:
     """
-    Compute base price using BOTH part name AND damage type.
+    Look up base price by damage_type (scratch/dent/crack/damage/flat).
+    Normalized using normalize_text() from severity.py for consistency.
 
-    base_price = PART_BASE_PRICE[part] × DAMAGE_TYPE_FACTOR[damage_type]
-
-    This prevents hallucination:
-      - Part anchor: reflects real market cost for that specific part
-      - Damage factor: reflects how much of the part cost this type requires
-
-    Example:
-      fender-dent + scratch → 12000 × 0.25 = ₹3,000
-      fender-dent + crack   → 12000 × 0.85 = ₹10,200
-      pillar-dent + damage  → 45000 × 1.00 = ₹45,000
+    Returns DEFAULT_BASE_PRICE if damage_type not found.
     """
-    # Part base — substring match using normalize_text from severity.py
-    label = normalize_text(part_name)
-    part_price = DEFAULT_PART_PRICE
-    for key, price in PART_BASE_PRICE.items():
-        if normalize_text(key) in label or label in normalize_text(key):
-            part_price = price
-            break
-    else:
-        logger.warning("No part price for '%s'. Using ₹%s.", part_name, DEFAULT_PART_PRICE)
-
-    # Damage type factor
-    dtype_key = normalize_text(damage_type)
-    dtype_factor = DAMAGE_TYPE_FACTOR.get(dtype_key, 0.60)   # default to dent-level
-    if dtype_key not in DAMAGE_TYPE_FACTOR:
-        logger.warning("Unknown damage_type '%s'. Using factor %.2f.", damage_type, dtype_factor)
-
-    combined = round(part_price * dtype_factor, 2)
-    logger.debug("Base price: %s × %s(%.2f) = ₹%.0f", part_name, damage_type, dtype_factor, combined)
-    return combined
+    dt = normalize_text(damage_type)
+    price = DAMAGE_TYPE_BASE_PRICE.get(dt)
+    if price is not None:
+        return price
+    logger.warning("No base price for damage_type '%s'. Using default ₹%s.", damage_type, DEFAULT_BASE_PRICE)
+    return DEFAULT_BASE_PRICE
 
 
 def _validate_part_entry(part_name: str, info: Dict) -> Optional[str]:
@@ -233,8 +185,8 @@ def estimate_cost(part_severity: Dict) -> Dict:
         damage_count    = info.get("damage_count", 1)
         max_area_ratio  = info.get("max_area_ratio", 0.0)
 
-        # ── Look up pricing: part name + damage type (no hallucination) ──────
-        base_price   = _get_base_price(part_label, damage_type)
+        # ── Look up pricing by damage_type (not part name) ────────────────
+        base_price   = _get_base_price(damage_type)
         repair_mult  = REPAIR_MULTIPLIER[sev_level]
         action       = REPAIR_ACTION[sev_level]
 

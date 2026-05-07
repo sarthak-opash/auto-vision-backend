@@ -16,7 +16,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from train.severity import generate_severity_report
-from train.cost_estimation import estimate_cost
 
 MODEL_PATH = REPO_ROOT / "runs" / "damage" / "weights" / "best.pt"
 PART_MODEL_PATH = REPO_ROOT / "runs" / "parts" / "weights" / "best.pt"
@@ -138,52 +137,3 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
         "severity_report": severity_report,
         "count": len(detections),
     }
-
-@app.post("/upload/cost-estimation")
-async def upload_and_estimate_cost(file: UploadFile = File(...)):
-    """
-    Upload + auto-detect damage → severity → damage_table → cost_estimation.
-    Returns:
-      - severity_report
-      - cost_estimation (breakdown per part)
-      - total_estimated_cost
-    """
-    content_type = file.content_type or ""
-    if content_type not in ["image/jpeg", "image/png", "image/webp"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Please upload a JPEG, PNG, or WEBP image.",
-        )
-
-    image, content = await read_image_upload(file)
-
-    # ---- Damage detection ----
-    model = get_model()
-    results = model.predict(source=image, conf=0.25, imgsz=640)
-    detections = boxes_to_rows(results[0].boxes, model.names)
-
-    # ---- Part detection ----
-    part_detections = []
-    part_model = get_part_model()
-    if part_model is not None:
-        part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
-        part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
-
-    # ---- Severity + part severity ----
-    severity_report = generate_severity_report(
-        detections, image.width, image.height, part_detections
-    )
-
-    part_severity = severity_report.get("part_severity", {})
-    if not part_severity:
-        cost_report = {"line_items": [], "parts_total": 0.0, "labor_total": 0.0, "grand_total": 0.0, "skipped_parts": []}
-    else:
-        cost_report = estimate_cost(part_severity)
-
-    # ---- Final response ----
-    response = {
-       #S "severity_report": severity_report,
-        "cost_estimation": cost_report,
-    }
-
-    return response

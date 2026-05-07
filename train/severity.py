@@ -89,49 +89,17 @@ def get_best_part_match(bbox, part_detections):
     return best
 
 
-def get_damage_type(label: str, area: float = 0.0) -> str:
-    """
-    Infer damage type from the class label.
-
-    Priority:
-      1. Explicit keywords in label (scratch / crack / flat / damage)
-      2. If label contains 'dent', use AREA to distinguish severity:
-           - area < 0.04  → 'scratch'   (hairline / minor surface)
-           - area < 0.15  → 'dent'      (clear panel deformation)
-           - area >= 0.15 → 'damage'    (large / structural impact)
-      3. Fallback → 'damage'
-
-    Why area-based for 'dent':
-      Model classes like 'bonnet-dent', 'fender-dent' always contain 'dent'
-      but the ACTUAL damage on that panel can range from a tiny scratch to
-      a large crumple. Area gives us that signal without a model retrain.
-    """
-    label_n = normalize_text(label)
-
-    # Explicit type keywords — always take priority
-    if "scratch" in label_n:
+def get_damage_type(label: str) -> str:
+    label = normalize_text(label)
+    if "scratch" in label:
         return "scratch"
-    if "crack"   in label_n:
+    if "dent" in label:
+        return "dent"
+    if "crack" in label:
         return "crack"
-    if "flat"    in label_n:
+    if "flat" in label:
         return "flat"
-    if "damage"  in label_n:
-        # 'damage' classes (windscreen, headlight) use area to split
-        if area < 0.05:
-            return "scratch"
-        if area < 0.20:
-            return "damage"
-        return "crack"        # very large damage area → crack / structural
-
-    if "dent" in label_n:
-        # Area-based split for generic dent labels
-        if area < 0.04:
-            return "scratch"  # too small to be a real dent — surface mark
-        if area < 0.15:
-            return "dent"     # typical panel dent
-        return "damage"       # large bbox → significant structural deformation
-
-    return "damage"           # unknown label fallback
+    return "damage"
 
 
 def compute_damage_score(area: float, damage_type: str, confidence: float, part_label: str) -> float:
@@ -242,9 +210,7 @@ def generate_severity_report(
         else:
             area = get_area(bbox, img_w, img_h)
 
-        # Pass area so get_damage_type can use bbox size to distinguish
-        # scratch vs dent vs structural damage for generic '-dent' class labels.
-        damage_type = get_damage_type(label, area)
+        damage_type = get_damage_type(label)
 
         score = compute_damage_score(area, damage_type, confidence, part_label)
 
