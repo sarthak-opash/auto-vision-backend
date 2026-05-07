@@ -1,0 +1,25 @@
+train: ../datasets/damage_18/train/images
+val: ../datasets/damage_18/valid/images
+test: ../datasets/damage_18/test/images
+
+nc: 18
+
+names:
+  0: Bodypanel-Dent
+  1: Front-Windscreen-Damage
+  2: Headlight-Damage
+  3: Rear-windscreen-Damage
+  4: RunningBoard-Dent
+  5: Sidemirror-Damage
+  6: Signlight-Damage
+  7: Taillight-Damage
+  8: bonnet-dent
+  9: boot-dent
+  10: doorouter-dent
+  11: fender-dent
+  12: front-bumper-dent
+  13: pillar-dent
+  14: quaterpanel-dent
+  15: rear-bumper-dent
+  16: roof-dent
+  17: tire-flat
