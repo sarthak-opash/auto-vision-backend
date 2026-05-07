@@ -5,23 +5,23 @@ from typing import List, Dict, Optional
 
 # 17 class
 PART_SCORE = {
-    "Bodypanel-Dent": 5,            
-    "Front-Windscreen-Damage": 10,  
-    "Headlight-Damage": 9,          
-    "Rear-windscreen-Damage": 9,    
-    "RunningBoard-Dent": 5,         
-    "Sidemirror-Damage": 7,         
-    "Signlight-Damage": 6,          
-    "Taillight-Damage": 9,          
-    "bonnet-dent": 7,               
-    "boot-dent": 6,                 
-    "doorouter-dent": 6,            
-    "fender-dent": 7,              
-    "front-bumper-dent": 7,         
-    "pillar-dent": 9,               
-    "quaterpanel-dent": 7,          
-    "rear-bumper-dent": 6,          
-    "roof-dent": 8,                 
+    "Bodypanel-Dent":          4,   # cosmetic panel
+    "Front-Windscreen-Damage": 9,   # safety-critical glass
+    "Headlight-Damage":        8,   # safety + visibility
+    "Rear-windscreen-Damage":  8,   # safety glass
+    "RunningBoard-Dent":       3,   # cosmetic only
+    "Sidemirror-Damage":       7,   # visibility safety
+    "Signlight-Damage":        5,   # minor safety
+    "Taillight-Damage":        8,   # rear safety
+    "bonnet-dent":             7,   # front panel
+    "boot-dent":               5,   # rear panel
+    "doorouter-dent":          6,   # side panel
+    "fender-dent":             6,   # side structural
+    "front-bumper-dent":       7,   # impact absorption
+    "pillar-dent":            10,   # structural — highest (cabin integrity)
+    "quaterpanel-dent":        6,   # rear structural
+    "rear-bumper-dent":        6,   # impact absorption
+    "roof-dent":               8,   # structural overhead
 }
 
 DAMAGE_SCORE = {
@@ -116,7 +116,7 @@ def compute_damage_score(area: float, damage_type: str, confidence: float, part_
     """
 
     # ---- AREA (non-linear to resist zoom bias)
-    # Higher K = slower growth, exponent > 1 compresses large areas
+    # Higher K = slower growth; exponent > 1 compresses large areas
     K = 0.25
     A = (area / (area + K)) ** 1.2
 
@@ -127,12 +127,14 @@ def compute_damage_score(area: float, damage_type: str, confidence: float, part_
     raw_part = get_match_score(part_label, PART_SCORE, 5)
     P = raw_part / 10.0
 
-    # ---- CONFIDENCE 
+    # ---- CONFIDENCE
     C = confidence ** 2
 
     # ---- BOUNDED ADDITIVE SCORE
-    # Weights: area=0.40, type=0.30, part=0.15, confidence=0.15
-    score = 0.40 * A + 0.30 * T + 0.15 * P + 0.15 * C
+    # area=0.35, type=0.35, part=0.15, confidence=0.15
+    # Rationale: damage type is equally important as area —
+    # a tiny pillar crack must outscore a large scratch.
+    score = 0.35 * A + 0.35 * T + 0.15 * P + 0.15 * C
 
     return max(0.0, min(score, 1.0))
 
@@ -232,20 +234,31 @@ def generate_severity_report(
         p: aggregate_part(s) for p, s in part_scores_map.items()
     }
 
-    # for cost estimation
     part_severity = {}
+    max_damage_weight = max(DAMAGE_SCORE.values())   # 0.8 (flat)
+
     for part_label, agg_score in part_agg_scores.items():
-        ps = round(agg_score * 100.0, 2)
         damage_types = list(dict.fromkeys(part_damages_map.get(part_label, [])))
         max_area = max(part_areas_map.get(part_label, [0.0]))
 
-        part_severity[part_label] = {
-            "severity_score": ps,
-            "severity_level": severity_level(ps),
-            "damage_count": len(part_scores_map[part_label]),
-            "damage_types": damage_types,
-            "max_area_ratio": round(max_area, 4),
-        }
+        for dtype in damage_types:
+            # Scale agg_score by the damage type's relative weight
+            # so that crack (0.6) gets a higher score than scratch (0.2)
+            # on the same part with the same aggregate score.
+            dtype_weight = DAMAGE_SCORE.get(dtype, 0.45)
+            blend = 0.7 * agg_score + 0.3 * dtype_weight
+            ps = round(min(blend, 1.0) * 100.0, 2)
+
+            key = f"{part_label}__{dtype}"
+            part_severity[key] = {
+                "part":           part_label,
+                "damage_type":    dtype,
+                "damage_types":   [dtype],
+                "severity_score": ps,
+                "severity_level": severity_level(ps),
+                "damage_count":   part_damages_map.get(part_label, []).count(dtype),
+                "max_area_ratio": round(max_area, 4),
+            }
 
     # OVERALL severity 
     if part_agg_scores:

@@ -1,51 +1,61 @@
 """
-Cost Estimation utilities for AutoClaim Vision.
+Cost Estimation Module — AutoClaim Vision
+==========================================
+Calculates vehicle damage repair costs using EXACT severity scores
+produced by severity.py. No re-normalization, no re-classification.
 
-INPUT  : part_severity dict from severity_engine.generate_severity_report()
-OUTPUT : per-part repair cost + totals
+Pipeline:
+    detection → severity.py (generate_severity_report)
+              → part_severity[part_name]["severity_score"]  # 0–100
+              → cost_estimation.py (estimate_cost)
+              → per-part cost + totals
 
-Prices are PLACEHOLDERS (INR). Replace with real market data later.
-Formula per part:
-    repair_cost = base_price × repair_multiplier × damage_type_factor
+Core formula (per part):
+    estimated_cost = base_price × repair_multiplier × severity_score
+
+    Where:
+        severity_score   — exact value from severity.py (0.0 – 100.0)
+        repair_multiplier — depends on severity band (same thresholds as severity.py)
+        base_price       — full replacement cost of the part (INR)
+
+Repair multiplier sizing for score-range formula:
+    Low      (0 – 24.99)  → 0.008   Minor surface damage
+    Medium   (25 – 49.99) → 0.012   Moderate panel damage
+    High     (50 – 74.99) → 0.018   Severe structural damage
+    Critical (75 – 100)   → 0.025   Full replacement needed
+
+Example:  bonnet-dent, score=45, base=₹12,000
+    cost = 12000 × 0.012 × 45 = ₹6,480
 """
 
-from typing import Dict, List
+import logging
+from typing import Dict, List, Optional
+from train.severity import severity_level, normalize_text
 
+# ─────────────────────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(name)s | %(message)s")
+logger = logging.getLogger("cost_estimation")
+# ─────────────────────────────────────────────────────────────────────────────
 
-# ─────────────────────────────────────────
-#  BASE PART PRICES  (INR, placeholder)
-#  Represents cost to fully replace the part.
-#  Repair actions apply a fraction of this via REPAIR_MULTIPLIER.
-#  Source: replace with real Indian market data (OEM/aftermarket split later).
-# ─────────────────────────────────────────
-PART_BASE_PRICE: Dict[str, float] = {
-    "Bodypanel-Dent":           5_000,
-    "Front-Windscreen-Damage": 18_000,
-    "Headlight-Damage":        12_000,
-    "Rear-windscreen-Damage":  14_000,
-    "RunningBoard-Dent":        4_000,
-    "Sidemirror-Damage":        5_500,
-    "Signlight-Damage":         2_500,
-    "Taillight-Damage":         8_000,
-    "bonnet-dent":             12_000,
-    "boot-dent":                9_000,
-    "doorouter-dent":          10_000,
-    "fender-dent":              8_000,
-    "front-bumper-dent":        6_500,
-    "pillar-dent":             30_000,   # structural — high base
-    "quaterpanel-dent":         9_000,
-    "rear-bumper-dent":         5_500,
-    "roof-dent":               15_000,
+DAMAGE_TYPE_BASE_PRICE: Dict[str, float] = {
+    "scratch":  6_000,    # Surface scratch — polish, compound, repaint
+    "dent":    15_000,    # Panel dent — PDR / filler / repaint
+    "crack":   25_000,    # Crack — structural filler, sealing, repaint
+    "damage":  35_000,    # Generic structural damage — panel work + repaint
+    "flat":    12_000,    # Flat tyre — tyre replacement + wheel alignment
 }
 
-DEFAULT_BASE_PRICE: float = 6_000   # fallback for unknown parts
+DEFAULT_BASE_PRICE: float = 10_000   # fallback for unknown damage type
 
 
-# ─────────────────────────────────────────
-#  REPAIR ACTION  (what action to take per severity level)
-#  WHY: same part, same price → different action based on how bad damage is.
-#       Low damage → polish only (cheap). Critical → full replace (expensive).
-# ─────────────────────────────────────────
+
+REPAIR_MULTIPLIER: Dict[str, float] = {
+    "Low":      0.008,   # Minor     — surface polish / touch-up
+    "Medium":   0.012,   # Moderate  — panel repair / filling
+    "High":     0.018,   # Severe    — panel replacement
+    "Critical": 0.025,   # Critical  — full replacement + structural inspection
+}
+
 REPAIR_ACTION: Dict[str, str] = {
     "Low":      "Polish / Touch-up",
     "Medium":   "Panel Repair",
@@ -53,129 +63,190 @@ REPAIR_ACTION: Dict[str, str] = {
     "Critical": "Full Replacement + Structural Inspection",
 }
 
-# Fraction of base price charged per repair action.
-# Critical > 1.0 because structural inspection adds labor beyond part cost.
-REPAIR_MULTIPLIER: Dict[str, float] = {
-    "Low":      0.12,
-    "Medium":   0.45,
-    "High":     0.85,
-    "Critical": 1.25,
-}
+# Labor overhead applied to total parts cost (painting, masking, finishing).
+LABOR_OVERHEAD: float = 0.20   # 20%
 
 
-# ─────────────────────────────────────────
-#  DAMAGE TYPE COST FACTOR
-#  WHY: a crack costs more to repair than a dent of the same area —
-#       cracks risk spreading, require filler/sealing, more prep labor.
-#       scratch is cheapest (surface only).
-# ─────────────────────────────────────────
-DAMAGE_TYPE_COST_FACTOR: Dict[str, float] = {
-    "scratch": 0.80,
-    "dent":    1.00,
-    "crack":   1.30,
-    "damage":  1.20,
-    "flat":    1.50,   # tyre replacement + alignment check
-}
-
-DEFAULT_DAMAGE_FACTOR: float = 1.00
-
-# Labor overhead as fraction of total parts cost.
-# WHY separate: labor rate varies by city/garage — easy to tune one constant.
-LABOR_OVERHEAD: float = 0.20    # 20% of parts total
-
-
-# ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  HELPERS
-# ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
-def _normalize(value: str) -> str:
-    return str(value).strip().lower().replace("_", "-")
+def _get_base_price(damage_type: str) -> float:
+    """
+    Look up base price by damage_type (scratch/dent/crack/damage/flat).
+    Normalized using normalize_text() from severity.py for consistency.
 
-
-def _get_base_price(part_label: str) -> float:
-    label = _normalize(part_label)
-    for key, price in PART_BASE_PRICE.items():
-        if _normalize(key) in label:
-            return price
+    Returns DEFAULT_BASE_PRICE if damage_type not found.
+    """
+    dt = normalize_text(damage_type)
+    price = DAMAGE_TYPE_BASE_PRICE.get(dt)
+    if price is not None:
+        return price
+    logger.warning("No base price for damage_type '%s'. Using default ₹%s.", damage_type, DEFAULT_BASE_PRICE)
     return DEFAULT_BASE_PRICE
 
 
-def _worst_damage_type(damage_types: List[str]) -> str:
+def _validate_part_entry(part_name: str, info: Dict) -> Optional[str]:
     """
-    Return highest-cost damage type from list.
-    WHY: a part may have both scratch + crack detected.
-         Use worst type to drive cost — conservative estimate.
+    Validate a part entry from part_severity.
+
+    Returns an error string if invalid, None if valid.
     """
-    order = ["flat", "crack", "damage", "dent", "scratch"]
-    for dtype in order:
-        if dtype in damage_types:
-            return dtype
-    return "dent"
+    if not part_name or not isinstance(part_name, str):
+        return "Part name is missing or not a string."
+
+    severity_score = info.get("severity_score")
+    if severity_score is None:
+        return f"Part '{part_name}': severity_score is missing."
+    if not isinstance(severity_score, (int, float)):
+        return f"Part '{part_name}': severity_score is not numeric (got {type(severity_score).__name__})."
+    if not (0.0 <= float(severity_score) <= 100.0):
+        return f"Part '{part_name}': severity_score {severity_score} out of expected range [0, 100]."
+
+    return None   # valid
 
 
-# ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  MAIN ESTIMATION FUNCTION
-# ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 def estimate_cost(part_severity: Dict) -> Dict:
     """
-    Estimate repair cost from severity report's part_severity dict.
+    Calculate repair cost for each damaged part using exact severity scores
+    from severity.py — no re-computation, no re-normalization.
 
     Args:
-        part_severity: dict of { part_label: { severity_score, severity_level,
-                                               damage_types, damage_count,
-                                               max_area_ratio } }
-                       as returned by severity_engine.generate_severity_report()
+        part_severity (Dict):
+            Directly from generate_severity_report()["part_severity"].
+            Structure:
+                {
+                    "bonnet-dent": {
+                        "severity_score": 45.2,      ← exact aggregated score [0-100]
+                        "severity_level": "Medium",
+                        "damage_types":  ["dent"],
+                        "damage_count":  2,
+                        "max_area_ratio": 0.031,
+                    },
+                    ...
+                }
 
     Returns:
         {
-            "line_items":   list of per-part cost dicts,
-            "parts_total":  float,
-            "labor_total":  float,
-            "grand_total":  float,
-            "currency":     "INR",
+            "line_items":   List[Dict]  — one row per part, sorted by cost desc
+            "parts_total":  float       — sum of all repair costs (INR)
+            "labor_total":  float       — 20% labor overhead (INR)
+            "grand_total":  float       — parts + labor (INR)
+            "currency":     "INR"
+            "skipped_parts": List[str] — parts skipped due to validation errors
             "note":         str
         }
     """
-    line_items = []
-    parts_total = 0.0
+    if not part_severity:
+        logger.warning("estimate_cost() called with empty part_severity.")
+        return {
+            "line_items":    [],
+            "parts_total":   0.0,
+            "labor_total":   0.0,
+            "grand_total":   0.0,
+            "currency":      "INR",
+            "skipped_parts": [],
+            "note":          "No damaged parts provided.",
+        }
 
-    for part_label, info in (part_severity or {}).items():
-        severity_lvl  = info.get("severity_level", "Medium")
-        damage_types  = info.get("damage_types", ["dent"])
-        severity_score = info.get("severity_score", 0.0)
+    line_items    = []
+    parts_total   = 0.0
+    skipped_parts = []
 
-        base_price      = _get_base_price(part_label)
-        repair_mult     = REPAIR_MULTIPLIER.get(severity_lvl, 0.45)
-        worst_dtype     = _worst_damage_type(damage_types)
-        dtype_factor    = DAMAGE_TYPE_COST_FACTOR.get(worst_dtype, DEFAULT_DAMAGE_FACTOR)
-        action          = REPAIR_ACTION.get(severity_lvl, "Panel Repair")
+    for part_name, info in part_severity.items():
 
-        part_cost = base_price * repair_mult * dtype_factor
-        part_cost = round(part_cost, 2)
-        parts_total += part_cost
+        # ── Validate entry ────────────────────────────────────────────────
+        error = _validate_part_entry(part_name, info)
+        if error:
+            logger.error("Skipping part — %s", error)
+            skipped_parts.append(part_name)
+            continue
+
+        # ── Extract EXACT severity_score from severity.py output ──────────
+        #    This is: round(aggregate_part(scores) * 100.0, 2)
+        #    DO NOT re-compute or normalize this value.
+        severity_score: float = float(info["severity_score"])
+
+        # ── Derive severity_level using the SAME imported function ─────────
+        #    Guarantees: same thresholds as severity.py
+        #    (<25 → Low, <50 → Medium, <75 → High, ≥75 → Critical)
+        sev_level: str = severity_level(severity_score)
+
+        # ── Extract part + damage_type directly from the info dict ───────────
+        # severity.py now keys part_severity by "{part}__{damage_type}"
+        # and stores both fields inside the value dict.
+        part_label      = info.get("part", part_name)          # e.g. "bonnet-dent"
+        damage_type     = info.get("damage_type", "dent")      # e.g. "dent"
+        damage_types    = info.get("damage_types", [damage_type])
+        damage_count    = info.get("damage_count", 1)
+        max_area_ratio  = info.get("max_area_ratio", 0.0)
+
+        # ── Look up pricing by damage_type (not part name) ────────────────
+        base_price   = _get_base_price(damage_type)
+        repair_mult  = REPAIR_MULTIPLIER[sev_level]
+        action       = REPAIR_ACTION[sev_level]
+
+        # ── Core formula ──────────────────────────────────────────────────
+        #    estimated_cost = base_price × repair_multiplier × severity_score
+        #
+        #    severity_score used AS-IS (0–100) — no division, no clamping.
+        #    repair_multiplier is sized so the product yields realistic INR values.
+        estimated_cost = base_price * repair_mult * severity_score
+        estimated_cost = round(estimated_cost, 2)
+        parts_total   += estimated_cost
+
+        logger.debug(
+            "%-30s | score=%5.1f | level=%-8s | base=₹%6.0f | mult=%5.3f | cost=₹%8.2f",
+            part_name, severity_score, sev_level, base_price, repair_mult, estimated_cost,
+        )
 
         line_items.append({
-            "part":            part_label,
-            "severity_level":  severity_lvl,
-            "severity_score":  severity_score,
-            "repair_action":   action,
-            "damage_types":    ", ".join(damage_types),
-            "base_price":      base_price,
-            "part_cost":       part_cost,
+            # ── Identification ────────────────────────────────────────────
+            "part":             part_label,            # e.g. "bonnet-dent"
+            "damage_type":      damage_type,           # e.g. "dent" — drives base price
+            "damage_types":     damage_types,          # list, backward compat
+            "damage_count":     damage_count,
+
+            # ── Exact severity from severity.py ───────────────────────────
+            "severity_score":   round(severity_score, 2),
+            "severity_level":   sev_level,
+
+            # ── Pricing breakdown ─────────────────────────────────────────
+            "base_price":        base_price,           # from DAMAGE_TYPE_BASE_PRICE
+            "repair_multiplier": repair_mult,
+            "estimated_cost":    estimated_cost,
+            "part_cost":         estimated_cost,       # alias for backward compat
+            "repair_action":     action,
+
+            # ── Metadata ──────────────────────────────────────────────────
+            "max_area_ratio":   round(max_area_ratio, 4),
         })
 
-    # sort by cost descending — most expensive damage first
-    line_items.sort(key=lambda x: x["part_cost"], reverse=True)
+    # Sort: highest estimated cost first
+    line_items.sort(key=lambda x: x["estimated_cost"], reverse=True)
 
     labor_total = round(parts_total * LABOR_OVERHEAD, 2)
     grand_total = round(parts_total + labor_total, 2)
 
+    logger.info(
+        "Cost estimation complete: %d parts | parts=₹%.2f | labor=₹%.2f | total=₹%.2f | skipped=%d",
+        len(line_items), parts_total, labor_total, grand_total, len(skipped_parts),
+    )
+
     return {
-        "line_items":  line_items,
-        "parts_total": round(parts_total, 2),
-        "labor_total": labor_total,
-        "grand_total": grand_total,
-        "currency":    "INR",
-        "note":        "Prices are placeholder estimates. Replace PART_BASE_PRICE with real market data.",
+        "line_items":    line_items,
+        "parts_total":   round(parts_total, 2),
+        "labor_total":   labor_total,
+        "grand_total":   grand_total,
+        "currency":      "INR",
+        "skipped_parts": skipped_parts,
+        "note":          (
+            "Costs calculated from exact severity scores produced by severity.py. "
+            "Formula: base_price × repair_multiplier × severity_score. "
+            "Replace PART_BASE_PRICE with OEM/regional market data for production use."
+        ),
     }

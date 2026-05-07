@@ -303,16 +303,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Model ─────────────────────────────────────────────────────────────────────
+# ── Models ────────────────────────────────────────────────────────────────────
 # DAMAGE_MODEL_PATH = BASE_PATH / "runs" / "damage_seg_v1" / "epoch_150" / "weights" / "best.pt"
 DAMAGE_MODEL_PATH = BASE_PATH / "runs" / "damage" / "weights" / "best.pt"
-if not DAMAGE_MODEL_PATH.exists():
-    DAMAGE_MODEL_PATH = BASE_PATH / "runs" / "damage" / "weights" / "best.pt"
+PART_MODEL_PATH   = BASE_PATH / "runs" / "parts"  / "weights" / "best.pt"
+
 if not DAMAGE_MODEL_PATH.exists():
     st.error("❌ Damage model not found. Expected at `runs/damage/weights/best.pt`")
     st.stop()
 
 damage_model = load_damage_model(str(DAMAGE_MODEL_PATH))
+
+# Part model is optional — used to remap damage detections to semantic part names
+# (same as severity_app.py) so severity scores are consistent across all pages.
+part_model = load_damage_model(str(PART_MODEL_PATH)) if PART_MODEL_PATH.exists() else None
 
 
 # ── Upload ────────────────────────────────────────────────────────────────────
@@ -354,8 +358,16 @@ try:
             annot_path = atmp.name
 
         detections  = boxes_to_rows(dmg_results[0].boxes, damage_model.names)
+
+        # Run part model if available — passes semantic part detections to severity engine
+        # so part names and scores match severity_app.py exactly (no divergence)
+        part_rows = []
+        if part_model is not None:
+            part_results = part_model.predict(source=tmp_path, conf=0.25, imgsz=640)
+            part_rows    = boxes_to_rows(part_results[0].boxes, part_model.names)
+
         sev_eng, cost_eng, rep_eng = load_engines()
-        sev_report  = sev_eng.generate_severity_report(detections, image.width, image.height, [])
+        sev_report  = sev_eng.generate_severity_report(detections, image.width, image.height, part_rows)
         cost_report = cost_eng.estimate_cost(sev_report["part_severity"])
 
     lvl   = sev_report["severity_level"]
