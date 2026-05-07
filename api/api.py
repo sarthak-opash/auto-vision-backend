@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from ultralytics import YOLO
 from PIL import Image, UnidentifiedImageError
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 app = FastAPI()
 MODEL_VERSION = "1.0.0"
@@ -140,7 +140,12 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
     }
 
 @app.post("/upload/cost-estimation")
-async def upload_and_estimate_cost(file: UploadFile = File(...)):
+async def upload_and_estimate_cost(
+    file:  UploadFile = File(...),
+    make:  str = Form(default=""),
+    model: str = Form(default=""),
+    year:  int = Form(default=0),
+):
     """
     Upload + auto-detect damage → severity → damage_table → cost_estimation.
     Returns:
@@ -176,9 +181,12 @@ async def upload_and_estimate_cost(file: UploadFile = File(...)):
 
     part_severity = severity_report.get("part_severity", {})
     if not part_severity:
-        cost_report = {"line_items": [], "parts_total": 0.0, "labor_total": 0.0, "grand_total": 0.0, "skipped_parts": []}
+        cost_report = {"line_items": [], "parts_total": 0.0, "labor_total": 0.0, "grand_total": 0.0, "skipped_parts": [], "vehicle_info": {}}
     else:
-        cost_report = estimate_cost(part_severity)
+        vehicle_info = None
+        if make and model and make.lower() != "unknown" and model.lower() != "unknown":
+            vehicle_info = {"make": make, "model": model, "year": year}
+        cost_report = estimate_cost(part_severity, vehicle_info=vehicle_info)
 
     # ---- Final response ----
     response = {

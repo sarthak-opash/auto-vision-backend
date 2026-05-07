@@ -31,6 +31,7 @@ Example:  bonnet-dent, score=45, base=₹12,000
 import logging
 from typing import Dict, List, Optional
 from train.severity import severity_level, normalize_text
+from train.vehicle_catalog import lookup_vehicle_price
 
 # ─────────────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(name)s | %(message)s")
@@ -110,7 +111,7 @@ def _validate_part_entry(part_name: str, info: Dict) -> Optional[str]:
 #  MAIN ESTIMATION FUNCTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-def estimate_cost(part_severity: Dict) -> Dict:
+def estimate_cost(part_severity: Dict, vehicle_info: Optional[Dict] = None) -> Dict:
     """
     Calculate repair cost for each damaged part using exact severity scores
     from severity.py — no re-computation, no re-normalization.
@@ -129,18 +130,29 @@ def estimate_cost(part_severity: Dict) -> Dict:
                     },
                     ...
                 }
+        vehicle_info (Dict, optional):
+            {"make": "Maruti", "model": "Swift", "year": 2022}
+            When provided, looks up OEM part prices from vehicle_catalog.py.
+            Falls back to DAMAGE_TYPE_BASE_PRICE if not found.
 
     Returns:
         {
-            "line_items":   List[Dict]  — one row per part, sorted by cost desc
-            "parts_total":  float       — sum of all repair costs (INR)
-            "labor_total":  float       — 20% labor overhead (INR)
-            "grand_total":  float       — parts + labor (INR)
-            "currency":     "INR"
-            "skipped_parts": List[str] — parts skipped due to validation errors
-            "note":         str
+            "line_items":    List[Dict]  — one row per part, sorted by cost desc
+            "parts_total":   float       — sum of all repair costs (INR)
+            "labor_total":   float       — 20% labor overhead (INR)
+            "grand_total":   float       — parts + labor (INR)
+            "currency":      "INR"
+            "vehicle_info":  dict        — echoes the vehicle_info used
+            "skipped_parts": List[str]  — parts skipped due to validation errors
+            "note":          str
         }
     """
+    # ── Resolve vehicle lookup keys ───────────────────────────────────────────
+    v_make  = (vehicle_info or {}).get("make", "") or ""
+    v_model = (vehicle_info or {}).get("model", "") or ""
+    v_year  = int((vehicle_info or {}).get("year", 0) or 0)
+    has_vehicle = bool(v_make and v_model and v_make.lower() != "unknown" and v_model.lower() != "unknown")
+
     if not part_severity:
         logger.warning("estimate_cost() called with empty part_severity.")
         return {
@@ -149,6 +161,7 @@ def estimate_cost(part_severity: Dict) -> Dict:
             "labor_total":   0.0,
             "grand_total":   0.0,
             "currency":      "INR",
+            "vehicle_info":  vehicle_info or {},
             "skipped_parts": [],
             "note":          "No damaged parts provided.",
         }
@@ -185,8 +198,18 @@ def estimate_cost(part_severity: Dict) -> Dict:
         damage_count    = info.get("damage_count", 1)
         max_area_ratio  = info.get("max_area_ratio", 0.0)
 
-        # ── Look up pricing by damage_type (not part name) ────────────────
-        base_price   = _get_base_price(damage_type)
+        # ── Look up pricing: vehicle catalog first, then generic fallback ────
+        vehicle_price = None
+        price_source  = "generic"
+        if has_vehicle:
+            vehicle_price = lookup_vehicle_price(v_make, v_model, v_year, part_label)
+
+        if vehicle_price is not None:
+            base_price   = vehicle_price
+            price_source = f"{v_make} {v_model} ({v_year})"
+        else:
+            base_price   = _get_base_price(damage_type)
+
         repair_mult  = REPAIR_MULTIPLIER[sev_level]
         action       = REPAIR_ACTION[sev_level]
 
@@ -205,7 +228,7 @@ def estimate_cost(part_severity: Dict) -> Dict:
         )
 
         line_items.append({
-            # ── Identification ────────────────────────────────────────────
+            # Identification 
             "part":             part_label,            # e.g. "bonnet-dent"
             "damage_type":      damage_type,           # e.g. "dent" — drives base price
             "damage_types":     damage_types,          # list, backward compat
@@ -216,7 +239,8 @@ def estimate_cost(part_severity: Dict) -> Dict:
             "severity_level":   sev_level,
 
             # ── Pricing breakdown ─────────────────────────────────────────
-            "base_price":        base_price,           # from DAMAGE_TYPE_BASE_PRICE
+            "base_price":        base_price,
+            "price_source":      price_source,         # "generic" or "Make Model (Year)"
             "repair_multiplier": repair_mult,
             "estimated_cost":    estimated_cost,
             "part_cost":         estimated_cost,       # alias for backward compat
@@ -237,16 +261,23 @@ def estimate_cost(part_severity: Dict) -> Dict:
         len(line_items), parts_total, labor_total, grand_total, len(skipped_parts),
     )
 
+    vehicle_note = (
+        f"Prices sourced from {v_make} {v_model} ({v_year}) OEM catalog. "
+        if has_vehicle else
+        "Generic damage-type prices used (no vehicle specified). "
+    )
+
     return {
         "line_items":    line_items,
         "parts_total":   round(parts_total, 2),
         "labor_total":   labor_total,
         "grand_total":   grand_total,
         "currency":      "INR",
+        "vehicle_info":  vehicle_info or {},
         "skipped_parts": skipped_parts,
         "note":          (
-            "Costs calculated from exact severity scores produced by severity.py. "
+            vehicle_note +
             "Formula: base_price × repair_multiplier × severity_score. "
-            "Replace PART_BASE_PRICE with OEM/regional market data for production use."
+            "Labour overhead: 20%."
         ),
     }

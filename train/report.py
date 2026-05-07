@@ -136,6 +136,7 @@ def generate_report(
     severity_result: dict,
     cost_result:     dict,
     annotated_image_path: str | None = None,
+    vehicle_info:    dict | None = None,
     output_path: str | None = None,
 ) -> bytes:
     """
@@ -145,6 +146,7 @@ def generate_report(
         severity_result:      generate_severity_report() output
         cost_result:          estimate_cost() output
         annotated_image_path: path to YOLO-annotated image (optional)
+        vehicle_info:         {"make", "model", "year", "segment"} (optional)
         output_path:          if given, also save PDF to disk
 
     Returns:
@@ -181,12 +183,31 @@ def generate_report(
     pdf.ln(5)
 
     sec = 1
-    
+
+    # ── VEHICLE INFORMATION ───────────────────────────────────────────────────
+    _section(pdf, f"{sec}. Vehicle Information")
+    sec += 1
+    vi = vehicle_info or {}
+    make_str    = _clean(vi.get("make",  "Not specified"))
+    model_str   = _clean(vi.get("model", "Not specified"))
+    year_str    = _clean(str(vi.get("year", "N/A")))
+    segment_str = _clean(vi.get("segment", "N/A").title() if vi.get("segment") else "N/A")
+    price_src   = _clean(cost_result.get("vehicle_info", {}).get("make", "") or "")
+
+    _kv(pdf, "Make",          make_str,    shade=True)
+    _kv(pdf, "Model",         model_str,   shade=False)
+    _kv(pdf, "Year",          year_str,    shade=True)
+    _kv(pdf, "Segment",       segment_str, shade=False)
+    _kv(pdf, "Price Source",
+        f"OEM catalog ({make_str} {model_str})" if price_src else "Generic damage-type prices",
+        shade=True)
+    pdf.ln(3)
     # ── ANNOTATED IMAGE ───────────────────────────────────────────────────────
     if annotated_image_path and Path(annotated_image_path).exists():
         _section(pdf, f"{sec}. Annotated Damage Image")
         sec += 1
         
+
         # 1. Calculate available gap on the current page
         gap_to_footer = pdf.h - pdf.get_y() - pdf.b_margin - 10
         target_w = 165  # Standard width in mm

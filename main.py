@@ -242,6 +242,7 @@ def load_engines():
     import train.severity        as sev_eng
     import train.cost_estimation as cost_eng
     import train.report          as rep_eng
+    from train.vehicle_catalog import ALL_MAKES, get_models_for_make
     return importlib.reload(sev_eng), importlib.reload(cost_eng), importlib.reload(rep_eng)
 
 
@@ -258,6 +259,7 @@ with st.sidebar:
     unsafe_allow_html=True
     )
     st.divider()
+    st.divider()
     st.markdown(
         '<div style="font-family:Syne,sans-serif;font-size:1rem;color:#444466;'
         'margin-bottom:10px">Pipeline</div>',
@@ -269,6 +271,34 @@ with st.sidebar:
             unsafe_allow_html=True
         )
     damage_conf = 0.25
+
+    st.divider()
+    # ── Vehicle Details ────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="font-family:Syne,sans-serif;font-size:1rem;color:#c9c9e0;'
+        'margin-bottom:10px">🚗 Vehicle Details</div>',
+        unsafe_allow_html=True
+    )
+    st.caption("Optional · improves cost accuracy")
+
+    from train.vehicle_catalog import ALL_MAKES, get_models_for_make, get_vehicle_info
+    selected_make  = st.selectbox("Make",  ALL_MAKES, index=0, key="v_make")
+    model_options  = get_models_for_make(selected_make)
+    selected_model = st.selectbox("Model", model_options, index=0, key="v_model")
+    selected_year  = st.number_input(
+        "Year", min_value=2000, max_value=2030, value=2022, step=1, key="v_year"
+    )
+    # Show segment tag
+    if selected_make != "Unknown" and selected_model != "Unknown":
+        vinfo = get_vehicle_info(selected_make, selected_model)
+        if vinfo:
+            seg_color = {"budget": "#10b981","mid": "#f59e0b","premium": "#3b82f6","luxury": "#a855f7"}.get(vinfo.get("segment",""), "#6b6b8a")
+            st.markdown(
+                f'<div style="margin-top:4px"><span style="background:{seg_color}22;color:{seg_color};'
+                f'border:1px solid {seg_color}44;border-radius:100px;padding:2px 10px;font-size:0.72rem;font-weight:600">'
+                f'{vinfo.get("segment","").title()} segment</span></div>',
+                unsafe_allow_html=True
+            )
 
     st.divider()
     st.markdown(
@@ -368,7 +398,17 @@ try:
 
         sev_eng, cost_eng, rep_eng = load_engines()
         sev_report  = sev_eng.generate_severity_report(detections, image.width, image.height, part_rows)
-        cost_report = cost_eng.estimate_cost(sev_report["part_severity"])
+
+        # Build vehicle_info — pass None if user left both as Unknown
+        vehicle_info = None
+        if selected_make != "Unknown" and selected_model != "Unknown":
+            vehicle_info = {
+                "make":  selected_make,
+                "model": selected_model,
+                "year":  int(selected_year),
+            }
+
+        cost_report = cost_eng.estimate_cost(sev_report["part_severity"], vehicle_info=vehicle_info)
 
     lvl   = sev_report["severity_level"]
     score = sev_report["severity_score"]
@@ -392,6 +432,27 @@ try:
         m3.metric("Severity Level", f"{lvl}")
         m4.metric("Grand total",    f"₹ {cost_report['grand_total']:,.0f}")
         st.markdown("<br>", unsafe_allow_html=True)
+        # ── Vehicle info badge ─────────────────────────────────────────────
+        if vehicle_info:
+            st.markdown(
+                f'<div style="background:#0e0e1a;border:1px solid #1e1e2e;border-radius:10px;'
+                f'padding:10px 14px;margin-bottom:12px">'
+                f'<div style="font-size:0.65rem;color:#6b6b8a;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Vehicle</div>'
+                f'<div style="font-family:Syne,sans-serif;font-weight:700;color:#f0f0f8;font-size:1rem">'
+                f'{vehicle_info["make"]} {vehicle_info["model"]}</div>'
+                f'<div style="font-size:0.78rem;color:#6b6b8a">{vehicle_info["year"]} &nbsp;·&nbsp; OEM prices applied</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div style="background:#0e0e1a;border:1px solid #1e1e2e;border-radius:10px;'
+                'padding:10px 14px;margin-bottom:12px">'
+                '<div style="font-size:0.65rem;color:#6b6b8a;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Vehicle</div>'
+                '<div style="font-size:0.78rem;color:#6b6b8a">Not specified · generic prices used</div>'
+                '</div>',
+                unsafe_allow_html=True
+            )
         if cost_report["grand_total"] > 0:
             st.markdown(
                 f'<div class="cost-hero">₹ {cost_report["grand_total"]:,.0f}</div>'
@@ -492,6 +553,20 @@ try:
     # ── Tab 3: Cost ───────────────────────────────────────────────────────────
     with tab_cost:
         st.markdown("<br>", unsafe_allow_html=True)
+        # Vehicle info header
+        if vehicle_info:
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:12px;'
+                f'background:#0e0e1a;border:1px solid #1e1e2e;border-radius:10px;'
+                f'padding:10px 16px;margin-bottom:16px">'
+                f'<span style="font-size:1.4rem">🚗</span>'
+                f'<div><div style="font-family:Syne,sans-serif;font-weight:700;color:#f0f0f8">'
+                f'{vehicle_info["make"]} {vehicle_info["model"]} ({vehicle_info["year"]})</div>'
+                f'<div style="font-size:0.75rem;color:#6b6b8a">OEM part prices applied from vehicle catalog</div></div></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.info("ℹ️ No vehicle specified — generic damage-type prices used. Select Make/Model/Year in the sidebar for accurate OEM pricing.", icon=None)
         st.markdown(
             f'<div style="font-size:0.75rem;color:#6b6b8a;margin-bottom:1rem">'
             f'ℹ️ &nbsp;{cost_report["note"]}</div>',
@@ -505,6 +580,8 @@ try:
                     "Severity":      f'{item["severity_level"]} ({item["severity_score"]})',
                     "Damage Types":  item["damage_types"],
                     "Repair Action": item["repair_action"],
+                    "Base Price (₹)": f'₹ {item["base_price"]:,.0f}',
+                    "Price Source":  item.get("price_source", "generic"),
                     "Est. Cost (₹)": f'₹ {item["part_cost"]:,.0f}',
                 })
             st.dataframe(rows, width='stretch', hide_index=True)
@@ -531,10 +608,18 @@ try:
             if st.button("📄 Generate PDF Report", type="primary", width='stretch'):
                 with st.spinner("Building PDF…"):
                     try:
+                        # Enrich vehicle_info with segment for PDF
+                        pdf_vehicle_info = None
+                        if vehicle_info:
+                            from train.vehicle_catalog import get_vehicle_info as _gvi
+                            vextra = _gvi(vehicle_info["make"], vehicle_info["model"])
+                            pdf_vehicle_info = {**vehicle_info, **vextra}
+
                         pdf_bytes = rep_eng.generate_report(
                             severity_result=sev_report,
                             cost_result=cost_report,
                             annotated_image_path=annot_path,
+                            vehicle_info=pdf_vehicle_info,
                         )
                         filename = f"autoclaim_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                         st.success("✅ Report ready!")
