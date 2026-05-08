@@ -24,10 +24,11 @@ except ImportError:
 # ─────────────────────────────────────────
 #  PALETTE
 # ─────────────────────────────────────────
-C_DARK   = (28,  28,  28)
-C_WHITE  = (255, 255, 255)
-C_LIGHT  = (245, 247, 250)
-C_ACCENT = (15,  52,  96)
+C_DARK   = (17,  17,  17)   # #111111 (Primary Text)
+C_WHITE  = (255, 255, 255)  # #FFFFFF
+C_LIGHT  = (245, 245, 247)  # #F5F5F7 (Secondary BG)
+C_ACCENT = (96,  23,  111)  # #60176F (Primary Accent)
+C_TEXT_S = (75,  75,  75)   # #4B4B4B (Secondary Text)
 
 SEVERITY_COLOURS = {
     "Low":      (25,  135,  84),
@@ -80,7 +81,7 @@ class _PDF(FPDF):
     def footer(self):
         self.set_y(-13)
         self.set_font("Helvetica", "", 7)
-        self.set_text_color(160, 160, 160)
+        self.set_text_color(*C_TEXT_S)
         self.cell(
             0, 8,
             _clean(
@@ -105,8 +106,10 @@ def _section(pdf: _PDF, title: str):
 def _kv(pdf: _PDF, key: str, value: str, shade: bool = False):
     pdf.set_fill_color(*(C_LIGHT if shade else C_WHITE))
     pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*C_TEXT_S)
     pdf.cell(65, 6, _clean(f"  {key}"), fill=True)
     pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*C_DARK)
     pdf.cell(0, 6, _clean(str(value)), new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
 
 
@@ -167,7 +170,7 @@ def generate_report(
     pdf.cell(0, 10, "Vehicle Damage Inspection Report",
              new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(120, 120, 120)
+    pdf.set_text_color(*C_TEXT_S)
     pdf.cell(0, 5, f"Generated: {now}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_text_color(*C_DARK)
     pdf.ln(3)
@@ -262,7 +265,7 @@ def generate_report(
             ], shade=(i % 2 == 0))
         pdf.ln(2)
         pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(100, 100, 100)
+        pdf.set_text_color(*C_TEXT_S)
         pdf.cell(0, 5, f"  {len(damage_table)} detection(s) total.",
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(*C_DARK)
@@ -380,7 +383,7 @@ def generate_report(
 
         pdf.ln(2)
         pdf.set_font("Helvetica", "I", 7)
-        pdf.set_text_color(120, 120, 120)
+        pdf.set_text_color(*C_TEXT_S)
         pdf.cell(0, 4, _clean(cost_result.get("note", "")),
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(*C_DARK)
@@ -396,7 +399,7 @@ def generate_report(
         pdf.add_page()
     _section(pdf, f"{sec}. Disclaimer")
     pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(90, 90, 90)
+    pdf.set_text_color(*C_TEXT_S)
     usable_w = pdf.w - pdf.l_margin - pdf.r_margin
     pdf.set_x(pdf.l_margin)
     pdf.multi_cell(
