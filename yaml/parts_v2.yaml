@@ -1,0 +1,19 @@
+train: ../datasets/parts_v2/train/images
+val: ../datasets/parts_v2/valid/images
+test: ../datasets/parts_v2/test/images
+
+nc: 25
+names: [
+  'Hood', 'Headlight', 'Gas_clip', 'Vent Grill', 'Window', 
+  'Taillight', 'Windshield', 'Rear Bumper', 'Front Bumper', 'Fender', 
+  'Front Fender', 'Rear Fender', 'License Plate', 'Tire', 'Door', 
+  'Side Mirror', 'Wheel', 'Gas Cap', 'Trunk Lid', 'Roof', 
+  'Rear Glass', 'Front Glass', 'Emblem', 'Fog Lamp', 'Tailgate'
+]
+
+roboflow:
+  workspace: computacional-vision
+  project: parts-car
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/computacional-vision/parts-car/dataset/2
