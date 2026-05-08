@@ -259,7 +259,6 @@ with st.sidebar:
     unsafe_allow_html=True
     )
     st.divider()
-    st.divider()
     st.markdown(
         '<div style="font-family:Syne,sans-serif;font-size:1rem;color:#444466;'
         'margin-bottom:10px">Pipeline</div>',
@@ -286,7 +285,7 @@ with st.sidebar:
     model_options  = get_models_for_make(selected_make)
     selected_model = st.selectbox("Model", model_options, index=0, key="v_model")
     selected_year  = st.number_input(
-        "Year", min_value=2000, max_value=2030, value=2022, step=1, key="v_year"
+        "Year", min_value=2000, max_value=2026, value=2022, step=1, key="v_year"
     )
     # Show segment tag
     if selected_make != "Unknown" and selected_model != "Unknown":
