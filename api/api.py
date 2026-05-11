@@ -26,7 +26,7 @@ app.add_middleware(
 MODEL_VERSION = "1.0.0"
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
-nif str(REPO_ROOT) not in sys.path:
+if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from train.cost_estimation import estimate_cost
