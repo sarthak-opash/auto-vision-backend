@@ -26,19 +26,19 @@ app.add_middleware(
 MODEL_VERSION = "1.0.0"
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
-nif str(REPO_ROOT) not in sys.path:
+if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from train.cost_estimation import estimate_cost
 from train.severity import generate_severity_report
 from train.vehicle_catalog import (
     ALL_MAKES,
-    get_models_for_make,
-    get_vehicle_info,
     MAKE_MODEL_MAP,
     VEHICLE_CATALOG,
+    get_vehicle_info,
+    SEVERITY_PART_MAP,
+    get_models_for_make,
     lookup_vehicle_price,
-    SEVERITY_PART_MAP
 )
 from train.report import generate_report
 
