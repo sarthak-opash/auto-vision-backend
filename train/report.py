@@ -1,18 +1,9 @@
-"""
-report.py
----------
-Stage 5 — Generate PDF inspection report for AutoClaim Vision.
+from __future__ import annotations
 
-Consumes output from:
-  - severity_engine.generate_severity_report()
-  - cost_engine.estimate_cost()
-
-Requires: pip install fpdf2
-"""
 
 import datetime
 from pathlib import Path
-from __future__ import annotations
+
 
 try:
     from fpdf import FPDF, XPos, YPos

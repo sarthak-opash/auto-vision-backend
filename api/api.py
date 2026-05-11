@@ -330,6 +330,101 @@ async def upload_and_generate_report(
     )
 
 
+@app.post("/upload/full-scan")
+async def upload_full_scan(
+    files: list[UploadFile] = File(...),
+    make:  str = Form(default=""),
+    model: str = Form(default=""),
+    year:  int = Form(default=0),
+):
+    """
+    Multi-angle scan: Process 4-5 images and return a single aggregated report.
+    """
+    if len(files) < 4:
+        raise HTTPException(
+            status_code=400,
+            detail="Full Scan requires 4 images: Front, Rear, Left, and Right.",
+        )
+
+    all_detections = []
+    all_damage_rows = []
+    aggregated_part_severity = {}
+    total_detections_count = 0
+    
+    # We'll use these to build an aggregated cost report
+    combined_part_severity_for_cost = {}
+
+    for i, file in enumerate(files):
+        image, content = await read_image_upload(file)
+        
+        # 1. Damage Detection
+        damage_model = get_model()
+        damage_results = damage_model.predict(source=image, conf=0.25, imgsz=640)
+        detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
+        
+        # Attach image index to each detection for multi-view correlation
+        for det in detections:
+            det["image_index"] = i
+            
+        total_detections_count += len(detections)
+        all_detections.extend(detections)
+
+        # 2. Part Detection
+        part_detections = []
+        part_model = get_part_model()
+        if part_model is not None:
+            part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
+            part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
+
+        # 3. Severity Analysis for THIS image
+        severity_report = generate_severity_report(
+            detections, image.width, image.height, part_detections
+        )
+        
+        # 4. Merge part_severity
+        # If a part exists in multiple images, we take the one with the higher severity score
+        for key, info in severity_report.get("part_severity", {}).items():
+            if key not in aggregated_part_severity or info["severity_score"] > aggregated_part_severity[key]["severity_score"]:
+                aggregated_part_severity[key] = info
+                combined_part_severity_for_cost[key] = info
+
+        # 5. Preserve detailed per-image rows for reporting
+        for row in severity_report.get("damage_table", []):
+            enriched_row = dict(row)
+            enriched_row["image_index"] = i
+            all_damage_rows.append(enriched_row)
+
+    # 6. Cost Estimation for ALL aggregated parts
+    vehicle_info = None
+    if make and model and make.lower() != "unknown" and model.lower() != "unknown":
+        vehicle_info = {"make": make, "model": model, "year": year}
+    
+    cost_report = estimate_cost(combined_part_severity_for_cost, vehicle_info=vehicle_info)
+
+    # 7. Final aggregated severity summary
+    final_severity_score = 0
+    if aggregated_part_severity:
+        scores = [info["severity_score"] for info in aggregated_part_severity.values()]
+        # Simple aggregation: 70% of max + 30% average
+        final_severity_score = 0.7 * max(scores) + 0.3 * (sum(scores) / len(scores))
+        final_severity_score = min(100.0, final_severity_score)
+
+    return {
+        "severity_report": {
+            "severity_score": round(final_severity_score, 2),
+            "severity_level": generate_severity_report([], 0, 0).get("severity_level", "Low") if not aggregated_part_severity else (
+                "Low" if final_severity_score < 25 else "Medium" if final_severity_score < 50 else "High" if final_severity_score < 75 else "Critical"
+            ),
+            "detected_parts": list(set([info["part"] for info in aggregated_part_severity.values()])),
+            "part_severity": aggregated_part_severity,
+            "damage_table": all_damage_rows,  # Detailed rows for reports
+            "detection_boxes": all_detections,  # Raw boxes for visual overlays
+        },
+        "cost_estimation": cost_report,
+        "count": total_detections_count,
+    }
+
+
 @app.get("/vehicle-catalog")
 def get_vehicle_catalog_legacy():
     """Returns the vehicle catalog in the format expected by the frontend."""
