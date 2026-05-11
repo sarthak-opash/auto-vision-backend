@@ -26,8 +26,7 @@ app.add_middleware(
 MODEL_VERSION = "1.0.0"
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
-
-if str(REPO_ROOT) not in sys.path:
+nif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from train.cost_estimation import estimate_cost
@@ -101,7 +100,7 @@ def draw_themed_annotations(image: Image.Image, detections: list[dict]) -> Image
     except:
         font = ImageFont.load_default()
 
-    brand_color = (96, 23, 111, 255)  # #60176F
+    brand_color = (152, 66, 22, 255)  # #984216
     
     for det in detections:
         x1, y1, x2, y2 = det["bbox"]
@@ -202,7 +201,6 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
     severity_report = generate_severity_report(
         detections, image.width, image.height, part_detections
     )
-    severity_report.pop("damage_table", None)
 
     return {
         "severity_report": severity_report,

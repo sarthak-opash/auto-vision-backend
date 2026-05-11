@@ -24,11 +24,11 @@ except ImportError:
 # ─────────────────────────────────────────
 #  PALETTE
 # ─────────────────────────────────────────
-C_DARK   = (17,  17,  17)   # #111111 (Primary Text)
+C_DARK   = (45,  26,  18)   # #2D1A12 (Brand Dark)
 C_WHITE  = (255, 255, 255)  # #FFFFFF
-C_LIGHT  = (245, 245, 247)  # #F5F5F7 (Secondary BG)
-C_ACCENT = (96,  23,  111)  # #60176F (Primary Accent)
-C_TEXT_S = (75,  75,  75)   # #4B4B4B (Secondary Text)
+C_LIGHT  = (253, 251, 247)  # #FDFBF7 (Surface 100)
+C_ACCENT = (152, 66,  22)   # #984216 (Burnt Sienna)
+C_TEXT_S = (141, 149, 126)  # #8D957E (Sage Green / Secondary Text)
 
 SEVERITY_COLOURS = {
     "Low":      (25,  135,  84),
