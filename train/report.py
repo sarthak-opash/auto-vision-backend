@@ -10,9 +10,9 @@ Consumes output from:
 Requires: pip install fpdf2
 """
 
-from __future__ import annotations
 import datetime
 from pathlib import Path
+from __future__ import annotations
 
 try:
     from fpdf import FPDF, XPos, YPos
@@ -350,18 +350,18 @@ def generate_report(
     line_items = cost_result.get("line_items", [])
     if line_items:
         cols = [
-            ("Part",            68),
-            ("Repair Action",   60),
-            ("Severity",        20),
-            ("Est. Cost",       32),
+            ("Part",            60),
+            ("Repair Action",   65),
+            ("Severity",        25),
+            ("Est. Cost",       30),
         ]
         _thead(pdf, cols)
         for i, item in enumerate(line_items):
             _trow(pdf, [
-                (item.get("part", ""),                   68),
-                (item.get("repair_action", ""),          60),
-                (item.get("severity_level", ""),         20),
-                (_fmt_inr(item.get("part_cost", 0)),     32),
+                (item.get("part", ""),                   60),
+                (item.get("repair_action", ""),          65),
+                (item.get("severity_level", ""),         25),
+                (_fmt_inr(item.get("part_cost", 0)),     30),
             ], shade=(i % 2 == 0))
 
         pdf.ln(3)

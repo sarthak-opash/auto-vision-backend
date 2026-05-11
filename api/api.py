@@ -33,12 +33,12 @@ from train.cost_estimation import estimate_cost
 from train.severity import generate_severity_report
 from train.vehicle_catalog import (
     ALL_MAKES,
-    get_models_for_make,
-    get_vehicle_info,
     MAKE_MODEL_MAP,
     VEHICLE_CATALOG,
+    get_vehicle_info,
+    SEVERITY_PART_MAP,
+    get_models_for_make,
     lookup_vehicle_price,
-    SEVERITY_PART_MAP
 )
 from train.report import generate_report
 
