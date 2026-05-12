@@ -41,9 +41,24 @@ from train.vehicle_catalog import (
     lookup_vehicle_price,
 )
 from train.report import generate_report
+from inference.detection_pipeline import DamageDetectionPipeline
 
 MODEL_PATH = REPO_ROOT / "runs" / "damage" / "weights" / "best.pt"
 PART_MODEL_PATH = REPO_ROOT / "runs" / "parts" / "weights" / "best.pt"
+
+# ─── Initialize Unified Pipeline ──────────────────────────────────────────────
+# @lru_cache(maxsize=1)
+# def get_pipeline() -> DamageDetectionPipeline:
+#     """Initialize the damage detection pipeline with GPU optimization."""
+#     return DamageDetectionPipeline(
+#         damage_model_path=str(MODEL_PATH),
+#         part_model_path=str(PART_MODEL_PATH),
+#         confidence_threshold=0.25,
+#         iou_threshold=0.1,
+#         device="0",  # GPU device ID
+#         use_parallel_inference=True,  # ✅ Run both models in parallel
+#         use_half_precision=True,  # ✅ FP16 precision for faster inference
+#     )
 
 
 @lru_cache(maxsize=1)
@@ -513,4 +528,160 @@ def get_part_price(make: str, model: str, year: int, part: str):
 def get_severity_map():
     """Returns the mapping from detection labels to catalog parts."""
     return SEVERITY_PART_MAP
+
+
+# # ─────────────────────────────────────────────────────────────────────────────
+# #  UNIFIED DAMAGE DETECTION PIPELINE ENDPOINTS (NEW)
+# # ─────────────────────────────────────────────────────────────────────────────
+
+# @app.post("/pipeline/detect")
+# async def pipeline_detect(file: UploadFile = File(...)):
+#     """
+#     Unified pipeline: Detect damages AND parts with overlap analysis.
+    
+#     Returns:
+#       - damage_detections: List of detected damages
+#       - part_detections: List of detected car parts
+#       - damage_part_associations: Damage-part overlaps with IoU scores
+#       - summary: Detection counts and statistics
+#       - processing_time_ms: Inference time
+#     """
+#     image, _ = await read_image_upload(file)
+    
+#     pipeline = get_pipeline()
+#     result = pipeline.process(image, imgsz=640)
+    
+#     return result.to_dict()
+
+
+# @app.post("/pipeline/severity-with-parts")
+# async def pipeline_severity_with_parts(file: UploadFile = File(...)):
+#     """
+#     Pipeline + Severity: Detect damages/parts and return severity per part.
+    
+#     Returns:
+#       - all detection data
+#       - part-specific severity scores
+#     """
+#     image, _ = await read_image_upload(file)
+    
+#     pipeline = get_pipeline()
+#     result = pipeline.process(image, imgsz=640)
+    
+#     # Map associations to part-severity
+#     part_severity_map = {}
+#     for assoc in result.associations:
+#         part_name = assoc.part_detection.class_name
+#         if part_name not in part_severity_map:
+#             part_severity_map[part_name] = {
+#                 "part": part_name,
+#                 "confidence": assoc.part_detection.confidence,
+#                 "damages": [],
+#                 "max_overlap": 0.0,
+#             }
+        
+#         part_severity_map[part_name]["damages"].append({
+#             "type": assoc.damage_detection.class_name,
+#             "confidence": assoc.damage_detection.confidence,
+#             "iou": assoc.iou,
+#             "overlap_percentage": assoc.overlap_percentage,
+#         })
+#         part_severity_map[part_name]["max_overlap"] = max(
+#             part_severity_map[part_name]["max_overlap"],
+#             assoc.overlap_percentage,
+#         )
+    
+#     return {
+#         "detection_results": result.to_dict(),
+#         "part_severity": part_severity_map,
+#         "total_affected_parts": len(part_severity_map),
+#     }
+
+
+# @app.post("/pipeline/cost-estimation-v2")
+# async def pipeline_cost_estimation_v2(
+#     file: UploadFile = File(...),
+#     make: str = Form(default=""),
+#     model: str = Form(default=""),
+#     year: int = Form(default=0),
+# ):
+#     """
+#     Pipeline-based cost estimation using damage-part associations.
+    
+#     More accurate than previous version as it uses IoU-weighted damage severity.
+#     """
+#     image, _ = await read_image_upload(file)
+    
+#     pipeline = get_pipeline()
+#     result = pipeline.process(image, imgsz=640)
+    
+#     # Build part-severity from associations
+#     part_severity_map = {}
+#     for assoc in result.associations:
+#         part_name = assoc.part_detection.class_name
+#         if part_name not in part_severity_map:
+#             part_severity_map[part_name] = {
+#                 "part": part_name,
+#                 "severity_score": 0.0,
+#                 "damage_types": set(),
+#             }
+        
+#         # Weight severity by overlap percentage and damage type
+#         damage_type = assoc.damage_detection.class_name
+#         iou_weight = assoc.iou
+        
+#         # Damage severity scoring (customize based on domain knowledge)
+#         damage_scores = {
+#             "tire flat": 80,
+#             "lamp broken": 70,
+#             "glass shatter": 65,
+#             "crack": 50,
+#             "scratch": 30,
+#             "dent": 40,
+#         }
+#         base_score = damage_scores.get(damage_type.lower(), 40)
+#         weighted_score = base_score * iou_weight
+        
+#         part_severity_map[part_name]["severity_score"] = max(
+#             part_severity_map[part_name]["severity_score"],
+#             weighted_score,
+#         )
+#         part_severity_map[part_name]["damage_types"].add(damage_type)
+    
+#     # Convert damage_types set to list for serialization
+#     for part_info in part_severity_map.values():
+#         part_info["damage_types"] = list(part_info["damage_types"])
+    
+#     # Use existing cost estimation
+#     vehicle_info = None
+#     if make and model and make.lower() != "unknown" and model.lower() != "unknown":
+#         vehicle_info = {"make": make, "model": model, "year": year}
+    
+#     cost_report = estimate_cost(part_severity_map, vehicle_info=vehicle_info)
+    
+#     return {
+#         "detection_results": result.to_dict(),
+#         "part_severity": part_severity_map,
+#         "cost_estimation": cost_report,
+#     }
+
+
+# @app.post("/pipeline/debug")
+# async def pipeline_debug(file: UploadFile = File(...)):
+#     """
+#     Debug endpoint: Return all intermediate detection data.
+    
+#     Useful for model validation and hyperparameter tuning.
+#     """
+#     image, _ = await read_image_upload(file)
+    
+#     pipeline = get_pipeline()
+#     result = pipeline.process(image, imgsz=640)
+    
+#     return {
+#         "raw_damages": [d.to_dict() for d in result.damage_detections],
+#         "raw_parts": [p.to_dict() for p in result.part_detections],
+#         "associations": [a.to_dict() for a in result.associations],
+#         "summary": result.to_dict()["summary"],
+#     }
 
