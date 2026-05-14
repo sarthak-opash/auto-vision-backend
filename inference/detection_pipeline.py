@@ -9,15 +9,13 @@ import sys
 import logging
 import threading
 import numpy as np
+from PIL import Image
 from pathlib import Path
+from ultralytics import YOLO
 from functools import lru_cache
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, field, asdict
 from concurrent.futures import ThreadPoolExecutor
-
-from PIL import Image
-from ultralytics import YOLO
-
 # ─── Setup logging ─────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

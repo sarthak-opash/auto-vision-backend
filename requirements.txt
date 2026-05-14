@@ -1,0 +1,59 @@
+# ============================================================================
+# AutoClaim Vision - Requirements File
+# Vehicle Damage Detection & Insurance Cost Estimation System
+# Python 3.9+
+# ============================================================================
+
+# ────────────────────────────────────────────────────────────────────────────
+# DEEP LEARNING & COMPUTER VISION
+# ────────────────────────────────────────────────────────────────────────────
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0          # YOLOv8 for damage detection, parts detection
+opencv-python>=4.8.0        # Image processing
+Pillow>=10.0.0              # Image I/O and manipulation
+
+# ────────────────────────────────────────────────────────────────────────────
+# OCR & TEXT RECOGNITION
+# ────────────────────────────────────────────────────────────────────────────
+paddlepaddle>=2.5.0         # PaddleOCR dependencies
+paddleocr>=2.7.0            # License plate OCR
+
+# ────────────────────────────────────────────────────────────────────────────
+# WEB FRAMEWORKS & API
+# ────────────────────────────────────────────────────────────────────────────
+streamlit>=1.28.0           # Frontend UI for AutoClaim Vision
+fastapi>=0.104.0            # REST API backend
+uvicorn>=0.24.0             # ASGI server for FastAPI
+python-multipart>=0.0.6     # Form data handling for FastAPI file uploads
+
+# ────────────────────────────────────────────────────────────────────────────
+# DATA PROCESSING & ANALYSIS
+# ────────────────────────────────────────────────────────────────────────────
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# ────────────────────────────────────────────────────────────────────────────
+# VISUALIZATION & REPORTING
+# ────────────────────────────────────────────────────────────────────────────
+matplotlib>=3.7.0
+seaborn>=0.12.0
+fpdf2>=2.7.0                # PDF generation for damage reports
+
+# ────────────────────────────────────────────────────────────────────────────
+# UTILITIES
+# ────────────────────────────────────────────────────────────────────────────
+tqdm>=4.65.0                # Progress bars
+
+# ────────────────────────────────────────────────────────────────────────────
+# OPTIONAL: COST ESTIMATION (if using XGBoost Model)
+# ────────────────────────────────────────────────────────────────────────────
+# xgboost>=2.0.0            # Uncomment if cost predictor model is deployed
+
+# ────────────────────────────────────────────────────────────────────────────
+# NOTES:
+# - GPU support: Ensure CUDA 11.8+ is installed for optimal performance
+# - For CPU-only: Install CPU versions of PyTorch from pytorch.org
+# - Development: Add pytest, black, pylint for testing & code quality
+# ────────────────────────────────────────────────────────────────────────────
