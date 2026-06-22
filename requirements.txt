@@ -13,11 +13,7 @@ ultralytics>=8.0.0          # YOLOv8 for damage detection, parts detection
 opencv-python>=4.8.0        # Image processing
 Pillow>=10.0.0              # Image I/O and manipulation
 
-# ────────────────────────────────────────────────────────────────────────────
-# OCR & TEXT RECOGNITION
-# ────────────────────────────────────────────────────────────────────────────
-paddlepaddle>=2.5.0         # PaddleOCR dependencies
-paddleocr>=2.7.0            # License plate OCR
+# ────────────────────────────────────────────────────────────────────────────        # License plate OCR
 
 # ────────────────────────────────────────────────────────────────────────────
 # WEB FRAMEWORKS & API
