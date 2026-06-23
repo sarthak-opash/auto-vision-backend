@@ -9,25 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Response
 
 app = FastAPI()
 
-import threading
-
-@app.on_event("startup")
-async def startup_event():
-    # Delay model loading to let health checks pass immediately on boot
-    def load_models_delayed():
-        import time
-        time.sleep(5)
-        print("Pre-loading models in background...")
-        try:
-            get_model()
-            get_part_model()
-            import gc
-            gc.collect()
-            print("Models pre-loaded successfully.")
-        except Exception as e:
-            print(f"Error pre-loading models: {e}")
-
-    threading.Thread(target=load_models_delayed, daemon=True).start()
+# Models will be lazy-loaded on the first API request to avoid blocking health checks.
 
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
