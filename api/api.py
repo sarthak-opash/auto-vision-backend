@@ -3,8 +3,6 @@ import sys
 from pathlib import Path
 from functools import lru_cache
 
-# Use lightweight ONNX model runner instead of heavy PyTorch and Ultralytics
-from inference.yolo_onnx import YOLOONNX as YOLO
 import gc
 from PIL import Image, UnidentifiedImageError, ImageDraw, ImageFont
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Response
@@ -45,6 +43,9 @@ BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# Use lightweight ONNX model runner instead of heavy PyTorch and Ultralytics
+from inference.yolo_onnx import YOLOONNX as YOLO
 
 from train.cost_estimation import estimate_cost
 from train.severity import generate_severity_report
