@@ -9,6 +9,15 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Response
 
 app = FastAPI()
 
+import threading
+import concurrent.futures
+
+@app.on_event("startup")
+async def startup_event():
+    # Pre-load models in background threads to avoid slow first-request latency
+    threading.Thread(target=get_model, daemon=True).start()
+    threading.Thread(target=get_part_model, daemon=True).start()
+
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
@@ -195,17 +204,23 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
 
     image, content = await read_image_upload(file)
 
-    # ---- Damage detection ----
+    # ---- Parallel Damage & Part detection ----
     model = get_model()
-    results = model.predict(source=image, conf=0.25, imgsz=640)
-    detections = boxes_to_rows(results[0].boxes, model.names)
-
-    # ---- Part detection ----
-    part_detections = []
     part_model = get_part_model()
-    if part_model is not None:
-        part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
-        part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        damage_future = executor.submit(model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+        part_future = None
+        if part_model is not None:
+            part_future = executor.submit(part_model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+
+        damage_results = damage_future.result()
+        detections = boxes_to_rows(damage_results[0].boxes, model.names)
+
+        part_detections = []
+        if part_future is not None:
+            part_results = part_future.result()
+            part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
 
     # ---- Severity report ----
     severity_report = generate_severity_report(
@@ -240,17 +255,23 @@ async def upload_and_estimate_cost(
 
     image, content = await read_image_upload(file)
 
-    # ---- Damage detection ----
+    # ---- Parallel Damage & Part detection ----
     damage_model = get_model()
-    results = damage_model.predict(source=image, conf=0.25, imgsz=640)
-    detections = boxes_to_rows(results[0].boxes, damage_model.names)
-
-    # ---- Part detection ----
-    part_detections = []
     part_model = get_part_model()
-    if part_model is not None:
-        part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
-        part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        damage_future = executor.submit(damage_model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+        part_future = None
+        if part_model is not None:
+            part_future = executor.submit(part_model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+
+        damage_results = damage_future.result()
+        detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
+
+        part_detections = []
+        if part_future is not None:
+            part_results = part_future.result()
+            part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
 
     # ---- Severity + part severity ----
     severity_report = generate_severity_report(
@@ -288,17 +309,23 @@ async def upload_and_generate_report(
     """
     image, content = await read_image_upload(file)
 
-    # 1. Damage Detection
+    # 1. Parallel Damage & Part detection
     damage_model = get_model()
-    damage_results = damage_model.predict(source=image, conf=0.25, imgsz=640)
-    detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
-
-    # 2. Part Detection
-    part_detections = []
     part_model = get_part_model()
-    if part_model is not None:
-        part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
-        part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        damage_future = executor.submit(damage_model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+        part_future = None
+        if part_model is not None:
+            part_future = executor.submit(part_model.predict, source=image, conf=0.25, imgsz=640, verbose=False)
+
+        damage_results = damage_future.result()
+        detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
+
+        part_detections = []
+        if part_future is not None:
+            part_results = part_future.result()
+            part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
 
     # 3. Severity Analysis
     severity_report = generate_severity_report(
