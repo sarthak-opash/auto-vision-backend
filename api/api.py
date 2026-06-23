@@ -3,15 +3,9 @@ import sys
 from pathlib import Path
 from functools import lru_cache
 
-# Limit PyTorch to single-thread to save memory and CPU on free-tier containers
-try:
-    import torch
-    torch.set_num_threads(1)
-except ImportError:
-    pass
-
+# Use lightweight ONNX model runner instead of heavy PyTorch and Ultralytics
+from inference.yolo_onnx import YOLOONNX as YOLO
 import gc
-from ultralytics import YOLO
 from PIL import Image, UnidentifiedImageError, ImageDraw, ImageFont
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Response
 
@@ -64,7 +58,7 @@ from train.vehicle_catalog import (
     lookup_vehicle_price,
 )
 from train.report import generate_report
-from inference.detection_pipeline import DamageDetectionPipeline
+# from inference.detection_pipeline import DamageDetectionPipeline
 
 MODEL_PATH = REPO_ROOT / "runs" / "damage" / "weights" / "best.pt"
 PART_MODEL_PATH = REPO_ROOT / "runs" / "parts" / "weights" / "best.pt"

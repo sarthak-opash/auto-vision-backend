@@ -7,9 +7,10 @@
 # ────────────────────────────────────────────────────────────────────────────
 # DEEP LEARNING & COMPUTER VISION
 # ────────────────────────────────────────────────────────────────────────────
-torch>=2.0.0
-torchvision>=0.15.0
-ultralytics>=8.0.0          # YOLOv8 for damage detection, parts detection
+# torch>=2.0.0
+# torchvision>=0.15.0
+# ultralytics>=8.0.0          # YOLOv8 for damage detection, parts detection
+onnxruntime>=1.16.0         # Lightweight inference runner
 opencv-python>=4.8.0        # Image processing
 Pillow>=10.0.0              # Image I/O and manipulation
 
