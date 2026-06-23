@@ -16,7 +16,7 @@ async def startup_event():
     # Delay model loading to let health checks pass immediately on boot
     def load_models_delayed():
         import time
-        time.sleep(15)
+        time.sleep(5)
         print("Pre-loading models in background...")
         try:
             get_model()

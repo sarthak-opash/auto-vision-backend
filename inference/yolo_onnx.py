@@ -100,35 +100,45 @@ class YOLOONNX:
         # Transpose to (8400, 4 + num_classes)
         predictions = np.transpose(output_tensor[0], (1, 0))
         
+        num_classes = len(self.names)
+        box_coords = predictions[:, :4]  # Shape: (8400, 4)
+        class_scores = predictions[:, 4:4+num_classes]  # Shape: (8400, num_classes)
+        
+        class_ids_all = np.argmax(class_scores, axis=1)
+        scores_all = np.max(class_scores, axis=1)
+        
+        # Filter predictions by confidence threshold
+        keep_mask = scores_all > conf
+        
+        filtered_boxes = box_coords[keep_mask]
+        filtered_scores = scores_all[keep_mask]
+        filtered_class_ids = class_ids_all[keep_mask]
+        
         boxes = []
         scores = []
         class_ids = []
-        num_classes = len(self.names)
         
-        for pred in predictions:
-            box_scores = pred[4:4+num_classes]
-            class_id = np.argmax(box_scores)
-            score = box_scores[class_id]
+        for idx in range(len(filtered_boxes)):
+            xc, yc, w, h = filtered_boxes[idx]
+            score = filtered_scores[idx]
+            class_id = filtered_class_ids[idx]
             
-            if score > conf:
-                xc, yc, w, h = pred[0:4]
-                
-                # Convert back to original unpadded coordinate space
-                x1 = (xc - w / 2 - pad_x) / r
-                y1 = (yc - h / 2 - pad_y) / r
-                x2 = (xc + w / 2 - pad_x) / r
-                y2 = (yc + h / 2 - pad_y) / r
-                
-                # Clip to original image bounds
-                x1 = max(0.0, min(x1, float(orig_w)))
-                y1 = max(0.0, min(y1, float(orig_h)))
-                x2 = max(0.0, min(x2, float(orig_w)))
-                y2 = max(0.0, min(y2, float(orig_h)))
-                
-                boxes.append([x1, y1, x2, y2])
-                scores.append(score)
-                class_ids.append(class_id)
-                
+            # Convert back to original unpadded coordinate space
+            x1 = (xc - w / 2 - pad_x) / r
+            y1 = (yc - h / 2 - pad_y) / r
+            x2 = (xc + w / 2 - pad_x) / r
+            y2 = (yc + h / 2 - pad_y) / r
+            
+            # Clip to original image bounds
+            x1 = max(0.0, min(x1, float(orig_w)))
+            y1 = max(0.0, min(y1, float(orig_h)))
+            x2 = max(0.0, min(x2, float(orig_w)))
+            y2 = max(0.0, min(y2, float(orig_h)))
+            
+            boxes.append([x1, y1, x2, y2])
+            scores.append(score)
+            class_ids.append(class_id)
+            
         # Non-Maximum Suppression (NMS)
         keep_indices = self._nms(np.array(boxes), np.array(scores), iou_threshold=0.45)
         
