@@ -18,7 +18,7 @@ Pillow>=10.0.0              # Image I/O and manipulation
 # ────────────────────────────────────────────────────────────────────────────
 # WEB FRAMEWORKS & API
 # ────────────────────────────────────────────────────────────────────────────
-streamlit>=1.28.0           # Frontend UI for AutoClaim Vision
+# streamlit>=1.28.0           # Frontend UI for AutoClaim Vision (local only)
 fastapi>=0.104.0            # REST API backend
 uvicorn>=0.24.0             # ASGI server for FastAPI
 python-multipart>=0.0.6     # Form data handling for FastAPI file uploads
@@ -27,20 +27,20 @@ python-multipart>=0.0.6     # Form data handling for FastAPI file uploads
 # DATA PROCESSING & ANALYSIS
 # ────────────────────────────────────────────────────────────────────────────
 numpy>=1.24.0
-pandas>=2.0.0
-scikit-learn>=1.3.0
+# pandas>=2.0.0             # Not used in API (optional/local only)
+# scikit-learn>=1.3.0       # Used in training only (optional/local only)
 
 # ────────────────────────────────────────────────────────────────────────────
 # VISUALIZATION & REPORTING
 # ────────────────────────────────────────────────────────────────────────────
-matplotlib>=3.7.0
-seaborn>=0.12.0
+# matplotlib>=3.7.0         # Used in training only (optional/local only)
+# seaborn>=0.12.0           # Used in training only (optional/local only)
 fpdf2>=2.7.0                # PDF generation for damage reports
 
 # ────────────────────────────────────────────────────────────────────────────
 # UTILITIES
 # ────────────────────────────────────────────────────────────────────────────
-tqdm>=4.65.0                # Progress bars
+# tqdm>=4.65.0                # Progress bars (optional/local only)
 
 # ────────────────────────────────────────────────────────────────────────────
 # OPTIONAL: COST ESTIMATION (if using XGBoost Model)
