@@ -369,6 +369,7 @@ async def upload_full_scan(
     year:  int = Form(default=0),
 ):
     import gc
+    import asyncio
     gc.collect()
     """
     Multi-angle scan: Process 4-5 images and return a single aggregated report.
@@ -379,34 +380,23 @@ async def upload_full_scan(
             detail="Full Scan requires 4 images: Front, Rear, Left, and Right.",
         )
 
-    all_detections = []
-    all_damage_rows = []
-    aggregated_part_severity = {}
-    total_detections_count = 0
-    
-    # We'll use these to build an aggregated cost report
-    combined_part_severity_for_cost = {}
-
-    for i, file in enumerate(files):
+    async def process_single_image(file: UploadFile, i: int):
         image, content = await read_image_upload(file)
         
-        # 1. Damage Detection
+        # 1. Damage Detection (offloaded to thread pool)
         damage_model = get_model()
-        damage_results = damage_model.predict(source=image, conf=0.25, imgsz=640)
+        damage_results = await asyncio.to_thread(damage_model.predict, image, 0.25, 640)
         detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
         
         # Attach image index to each detection for multi-view correlation
         for det in detections:
             det["image_index"] = i
-            
-        total_detections_count += len(detections)
-        all_detections.extend(detections)
 
-        # 2. Part Detection
+        # 2. Part Detection (offloaded to thread pool)
         part_detections = []
         part_model = get_part_model()
         if part_model is not None:
-            part_results = part_model.predict(source=image, conf=0.25, imgsz=640)
+            part_results = await asyncio.to_thread(part_model.predict, image, 0.25, 640)
             part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
 
         # 3. Severity Analysis for THIS image
@@ -414,8 +404,23 @@ async def upload_full_scan(
             detections, image.width, image.height, part_detections
         )
         
+        return detections, severity_report
+
+    # Process all uploaded images concurrently
+    tasks = [process_single_image(file, i) for i, file in enumerate(files)]
+    results = await asyncio.gather(*tasks)
+
+    all_detections = []
+    all_damage_rows = []
+    aggregated_part_severity = {}
+    total_detections_count = 0
+    combined_part_severity_for_cost = {}
+
+    for i, (detections, severity_report) in enumerate(results):
+        total_detections_count += len(detections)
+        all_detections.extend(detections)
+
         # 4. Merge part_severity
-        # If a part exists in multiple images, we take the one with the higher severity score
         for key, info in severity_report.get("part_severity", {}).items():
             if key not in aggregated_part_severity or info["severity_score"] > aggregated_part_severity[key]["severity_score"]:
                 aggregated_part_severity[key] = info

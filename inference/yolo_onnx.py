@@ -15,7 +15,16 @@ class MockResult:
     def __init__(self, boxes, names, orig_img):
         self.boxes = boxes
         self.names = names
-        self.orig_img = orig_img
+        self._orig_img = orig_img
+        self._orig_img_bgr = None
+
+    @property
+    def orig_img(self):
+        """Lazy conversion of PIL Image to BGR numpy array."""
+        if self._orig_img_bgr is None:
+            import cv2
+            self._orig_img_bgr = cv2.cvtColor(np.array(self._orig_img), cv2.COLOR_RGB2BGR)
+        return self._orig_img_bgr
 
     def plot(self):
         """Draw boxes and labels on the original BGR image and return it."""
@@ -57,10 +66,12 @@ class YOLOONNX:
         if not providers:
             providers = ["CPUExecutionProvider"]
             
-        # Optimize SessionOptions to limit threads to 1 and prevent CPU starvation in containerized hosts
+        # Optimize SessionOptions for maximum hardware utilization
         opts = ort.SessionOptions()
-        opts.intra_op_num_threads = 1
-        opts.inter_op_num_threads = 1
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # Dynamically allocate thread pool size for minimum inference latency
+        opts.intra_op_num_threads = 0
+        opts.inter_op_num_threads = 0
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         # Disable CPU memory arena to release intermediate memory allocations back to OS immediately
         opts.enable_cpu_mem_arena = False
@@ -100,10 +111,6 @@ class YOLOONNX:
             img = Image.open(source)
             
         orig_w, orig_h = img.size
-        
-        # Get BGR numpy array of original image for plotting
-        import cv2
-        orig_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         
         # Letterbox resize (keeps aspect ratio and pads with gray)
         r = min(imgsz / orig_w, imgsz / orig_h)
@@ -154,43 +161,38 @@ class YOLOONNX:
         filtered_scores = scores_all[keep_mask]
         filtered_class_ids = class_ids_all[keep_mask]
         
-        boxes = []
-        scores = []
-        class_ids = []
-        
-        for idx in range(len(filtered_boxes)):
-            xc, yc, w, h = filtered_boxes[idx]
-            score = filtered_scores[idx]
-            class_id = filtered_class_ids[idx]
+        # Vectorized coordinate transformation
+        if len(filtered_boxes) > 0:
+            xc = filtered_boxes[:, 0]
+            yc = filtered_boxes[:, 1]
+            w = filtered_boxes[:, 2]
+            h = filtered_boxes[:, 3]
             
-            # Convert back to original unpadded coordinate space
             x1 = (xc - w / 2 - pad_x) / r
             y1 = (yc - h / 2 - pad_y) / r
             x2 = (xc + w / 2 - pad_x) / r
             y2 = (yc + h / 2 - pad_y) / r
             
             # Clip to original image bounds
-            x1 = max(0.0, min(x1, float(orig_w)))
-            y1 = max(0.0, min(y1, float(orig_h)))
-            x2 = max(0.0, min(x2, float(orig_w)))
-            y2 = max(0.0, min(y2, float(orig_h)))
+            x1 = np.clip(x1, 0.0, float(orig_w))
+            y1 = np.clip(y1, 0.0, float(orig_h))
+            x2 = np.clip(x2, 0.0, float(orig_w))
+            y2 = np.clip(y2, 0.0, float(orig_h))
             
-            boxes.append([x1, y1, x2, y2])
-            scores.append(score)
-            class_ids.append(class_id)
+            boxes_all = np.stack([x1, y1, x2, y2], axis=1)
+            keep_indices = self._nms(boxes_all, filtered_scores, iou_threshold=0.45)
             
-        # Non-Maximum Suppression (NMS)
-        keep_indices = self._nms(np.array(boxes), np.array(scores), iou_threshold=0.45)
-        
-        mock_boxes = []
-        for idx in keep_indices:
-            mock_boxes.append(MockBox(
-                cls=class_ids[idx],
-                conf=scores[idx],
-                xyxy=boxes[idx]
-            ))
+            mock_boxes = []
+            for idx in keep_indices:
+                mock_boxes.append(MockBox(
+                    cls=int(filtered_class_ids[idx]),
+                    conf=float(filtered_scores[idx]),
+                    xyxy=boxes_all[idx].tolist()
+                ))
+        else:
+            mock_boxes = []
             
-        return [MockResult(boxes=mock_boxes, names=self.names, orig_img=orig_img)]
+        return [MockResult(boxes=mock_boxes, names=self.names, orig_img=img)]
         
     def _nms(self, boxes, scores, iou_threshold):
         if len(boxes) == 0:
