@@ -61,18 +61,34 @@ PART_MODEL_PATH = REPO_ROOT / "runs" / "parts" / "weights" / "best.pt"
 #     )
 
 
-@lru_cache(maxsize=1)
-def get_model() -> YOLO:
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Damage model not found at: {MODEL_PATH}")
-    return YOLO(str(MODEL_PATH))
+class ModelManager:
+    _active_model = None
+    _active_path = None
 
-
-@lru_cache(maxsize=1)
-def get_part_model() -> YOLO | None:
-    if not PART_MODEL_PATH.exists():
-        return None
-    return YOLO(str(PART_MODEL_PATH))
+    @classmethod
+    def get_model(cls, model_path: Path) -> YOLO | None:
+        if not model_path.exists():
+            return None
+        
+        # Check if the requested model is already loaded
+        if cls._active_path != model_path:
+            # Explicitly delete the old session to free memory
+            if cls._active_model is not None:
+                if hasattr(cls._active_model, "session"):
+                    del cls._active_model.session
+                del cls._active_model
+                cls._active_model = None
+            
+            cls._active_path = None
+            import gc
+            gc.collect()
+            
+            # Load the new model
+            cls._active_model = YOLO(str(model_path))
+            cls._active_path = model_path
+            gc.collect()
+            
+        return cls._active_model
 
 
 def boxes_to_rows(boxes, names) -> list[dict]:
@@ -185,7 +201,7 @@ async def upload_and_predict(file: UploadFile = File(...)):
 
     image, content = await read_image_upload(file)
 
-    model = get_model()
+    model = ModelManager.get_model(MODEL_PATH)
     results = model.predict(source=image, conf=0.25)
     detections = boxes_to_rows(results[0].boxes, model.names)
 
@@ -205,12 +221,12 @@ async def upload_and_predict_severity(file: UploadFile = File(...)):
     image, content = await read_image_upload(file)
 
     # ---- Sequential Damage & Part detection to minimize peak memory ----
-    model = get_model()
+    model = ModelManager.get_model(MODEL_PATH)
     results = model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
     detections = boxes_to_rows(results[0].boxes, model.names)
 
     part_detections = []
-    part_model = get_part_model()
+    part_model = ModelManager.get_model(PART_MODEL_PATH)
     if part_model is not None:
         part_results = part_model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
         part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
@@ -255,12 +271,12 @@ async def upload_and_estimate_cost(
     image, content = await read_image_upload(file)
 
     # ---- Sequential Damage & Part detection to minimize peak memory ----
-    damage_model = get_model()
+    damage_model = ModelManager.get_model(MODEL_PATH)
     results = damage_model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
     detections = boxes_to_rows(results[0].boxes, damage_model.names)
 
     part_detections = []
-    part_model = get_part_model()
+    part_model = ModelManager.get_model(PART_MODEL_PATH)
     if part_model is not None:
         part_results = part_model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
         part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
@@ -308,12 +324,12 @@ async def upload_and_generate_report(
     image, content = await read_image_upload(file)
 
     # 1. Sequential Damage & Part detection to minimize peak memory
-    damage_model = get_model()
+    damage_model = ModelManager.get_model(MODEL_PATH)
     damage_results = damage_model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
     detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
 
     part_detections = []
-    part_model = get_part_model()
+    part_model = ModelManager.get_model(PART_MODEL_PATH)
     if part_model is not None:
         part_results = part_model.predict(source=image, conf=0.25, imgsz=640, verbose=False)
         part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
@@ -369,10 +385,9 @@ async def upload_full_scan(
     year:  int = Form(default=0),
 ):
     import gc
-    import asyncio
     gc.collect()
     """
-    Multi-angle scan: Process 4-5 images and return a single aggregated report.
+    Multi-angle scan: Process 4-5 images sequentially and return a single aggregated report.
     """
     if len(files) < 4:
         raise HTTPException(
@@ -380,35 +395,31 @@ async def upload_full_scan(
             detail="Full Scan requires 4 images: Front, Rear, Left, and Right.",
         )
 
-    async def process_single_image(file: UploadFile, i: int):
+    # Load all images first
+    parsed_images = []
+    for file in files:
         image, content = await read_image_upload(file)
-        
-        # 1. Damage Detection (offloaded to thread pool)
-        damage_model = get_model()
-        damage_results = await asyncio.to_thread(damage_model.predict, image, 0.25, 640)
+        parsed_images.append(image)
+
+    # 1. Damage Detection on all images (uses damage model)
+    damage_model = ModelManager.get_model(MODEL_PATH)
+    all_damage_detections = []
+    for i, image in enumerate(parsed_images):
+        damage_results = damage_model.predict(image, 0.25, 640)
         detections = boxes_to_rows(damage_results[0].boxes, damage_model.names)
-        
-        # Attach image index to each detection for multi-view correlation
         for det in detections:
             det["image_index"] = i
+        all_damage_detections.append(detections)
 
-        # 2. Part Detection (offloaded to thread pool)
-        part_detections = []
-        part_model = get_part_model()
+    # 2. Part Detection on all images (uses part model, unloads damage model)
+    part_model = ModelManager.get_model(PART_MODEL_PATH)
+    all_part_detections = []
+    for i, image in enumerate(parsed_images):
+        part_dets = []
         if part_model is not None:
-            part_results = await asyncio.to_thread(part_model.predict, image, 0.25, 640)
-            part_detections = boxes_to_rows(part_results[0].boxes, part_model.names)
-
-        # 3. Severity Analysis for THIS image
-        severity_report = generate_severity_report(
-            detections, image.width, image.height, part_detections
-        )
-        
-        return detections, severity_report
-
-    # Process all uploaded images concurrently
-    tasks = [process_single_image(file, i) for i, file in enumerate(files)]
-    results = await asyncio.gather(*tasks)
+            part_results = part_model.predict(image, 0.25, 640)
+            part_dets = boxes_to_rows(part_results[0].boxes, part_model.names)
+        all_part_detections.append(part_dets)
 
     all_detections = []
     all_damage_rows = []
@@ -416,7 +427,15 @@ async def upload_full_scan(
     total_detections_count = 0
     combined_part_severity_for_cost = {}
 
-    for i, (detections, severity_report) in enumerate(results):
+    # 3. Post-inference calculations and report aggregation
+    for i, image in enumerate(parsed_images):
+        detections = all_damage_detections[i]
+        part_detections = all_part_detections[i]
+
+        severity_report = generate_severity_report(
+            detections, image.width, image.height, part_detections
+        )
+        
         total_detections_count += len(detections)
         all_detections.extend(detections)
 
@@ -431,6 +450,10 @@ async def upload_full_scan(
             enriched_row = dict(row)
             enriched_row["image_index"] = i
             all_damage_rows.append(enriched_row)
+            
+    # Clean up memory immediately
+    gc.collect()
+
 
     # 6. Cost Estimation for ALL aggregated parts
     vehicle_info = None

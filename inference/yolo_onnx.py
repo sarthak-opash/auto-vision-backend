@@ -66,15 +66,20 @@ class YOLOONNX:
         if not providers:
             providers = ["CPUExecutionProvider"]
             
-        # Optimize SessionOptions for maximum hardware utilization
+        # Optimize SessionOptions for maximum hardware utilization on CPU
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        # Dynamically allocate thread pool size for minimum inference latency
-        opts.intra_op_num_threads = 0
-        opts.inter_op_num_threads = 0
+        
+        # Limit thread count to avoid oversubscription / context switching overhead
+        opts.intra_op_num_threads = min(4, os.cpu_count() or 1)
+        opts.inter_op_num_threads = 1
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-        # Disable CPU memory arena to release intermediate memory allocations back to OS immediately
-        opts.enable_cpu_mem_arena = False
+        
+        # Enable CPU memory arena to reuse intermediate allocations and reduce latency
+        opts.enable_cpu_mem_arena = True
+        
+        # Enable spinning for worker threads to decrease wakeup latency
+        opts.add_session_config_entry("session.intra_op.allow_spinning", "1")
             
         self.session = ort.InferenceSession(model_path, providers=providers, sess_options=opts)
         self.input_name = self.session.get_inputs()[0].name
