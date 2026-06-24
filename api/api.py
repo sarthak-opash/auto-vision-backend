@@ -177,6 +177,8 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/upload/predict")
 async def upload_and_predict(file: UploadFile = File(...)):
+    import gc
+    gc.collect()
     content_type = file.content_type or ""
     if content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a JPEG, PNG, or WEBP image.")
@@ -194,6 +196,8 @@ async def upload_and_predict(file: UploadFile = File(...)):
     
 @app.post("/upload/severity")
 async def upload_and_predict_severity(file: UploadFile = File(...)):
+    import gc
+    gc.collect()
     content_type = file.content_type or ""
     if content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a JPEG, PNG, or WEBP image.")
@@ -232,6 +236,8 @@ async def upload_and_estimate_cost(
     model: str = Form(default=""),
     year:  int = Form(default=0),
 ):
+    import gc
+    gc.collect()
     """
     Upload + auto-detect damage → severity → damage_table → cost_estimation.
     Returns:
@@ -293,6 +299,8 @@ async def upload_and_generate_report(
     model: str = Form(default=""),
     year:  int = Form(default=0),
 ):
+    import gc
+    gc.collect()
     """
     Complete pipeline: Detect → Severity → Cost → PDF Report.
     Returns: PDF binary stream.
@@ -360,6 +368,8 @@ async def upload_full_scan(
     model: str = Form(default=""),
     year:  int = Form(default=0),
 ):
+    import gc
+    gc.collect()
     """
     Multi-angle scan: Process 4-5 images and return a single aggregated report.
     """

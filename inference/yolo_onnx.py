@@ -62,6 +62,8 @@ class YOLOONNX:
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        # Disable CPU memory arena to release intermediate memory allocations back to OS immediately
+        opts.enable_cpu_mem_arena = False
             
         self.session = ort.InferenceSession(model_path, providers=providers, sess_options=opts)
         self.input_name = self.session.get_inputs()[0].name
