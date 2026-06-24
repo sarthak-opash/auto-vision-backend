@@ -2421,8 +2421,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run migrations and start server
-CMD alembic upgrade head && \
-    uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+CMD uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 **CI/CD Pipeline (GitHub Actions):**
@@ -2956,16 +2955,11 @@ docker run -it -p 8080:8080 \
 
 5. **Start Backend Development:**
 ```bash
-cd backend
+# Start development FastAPI server (port 8000)
+uvicorn main:app --reload --port 8000
 
-# Create database
-createdb autoclaim_db
-
-# Run migrations
-alembic upgrade head
-
-# Start development server
-uvicorn app.main:app --reload --port 8000
+# Start development Streamlit dashboard (port 8501)
+streamlit run streamlit_app.py
 ```
 
 6. **Start Frontend Development:**

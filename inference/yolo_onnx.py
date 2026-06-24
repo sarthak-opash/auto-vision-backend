@@ -12,9 +12,31 @@ class MockBox:
 
 class MockResult:
     """Mock result class to mimic ultralytics.engine.results.Results."""
-    def __init__(self, boxes, names):
+    def __init__(self, boxes, names, orig_img):
         self.boxes = boxes
         self.names = names
+        self.orig_img = orig_img
+
+    def plot(self):
+        """Draw boxes and labels on the original BGR image and return it."""
+        import cv2
+        img = self.orig_img.copy()
+        for box in self.boxes:
+            x1, y1, x2, y2 = [int(v) for v in box.xyxy[0]]
+            cls_id = int(box.cls[0])
+            conf = float(box.conf[0])
+            label = f"{self.names[cls_id]} {conf:.1%}"
+            
+            # Draw bounding box
+            color = (22, 66, 152) # Themed brand color (#984216) in BGR: (22, 66, 152)
+            cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+            
+            # Draw text label background and text
+            text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0]
+            label_y = y1 - 4 if y1 > 20 else y1 + 14
+            cv2.rectangle(img, (x1, label_y - text_size[1] - 4), (x1 + text_size[0] + 4, label_y + 4), color, -1)
+            cv2.putText(img, label, (x1 + 2, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+        return img
 
 class YOLOONNX:
     """
@@ -28,8 +50,14 @@ class YOLOONNX:
             
         self.model_path = model_path
         
-        # Use CPUExecutionProvider for standard CPU environments (like Render free tier)
-        self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        # Try TensorRT, CUDA, and then CPUExecutionProvider for standard CPU fallback
+        preferred_providers = ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]
+        available_providers = ort.get_available_providers()
+        providers = [p for p in preferred_providers if p in available_providers]
+        if not providers:
+            providers = ["CPUExecutionProvider"]
+            
+        self.session = ort.InferenceSession(model_path, providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
         
@@ -64,6 +92,10 @@ class YOLOONNX:
             img = Image.open(source)
             
         orig_w, orig_h = img.size
+        
+        # Get BGR numpy array of original image for plotting
+        import cv2
+        orig_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         
         # Letterbox resize (keeps aspect ratio and pads with gray)
         r = min(imgsz / orig_w, imgsz / orig_h)
@@ -150,7 +182,7 @@ class YOLOONNX:
                 xyxy=boxes[idx]
             ))
             
-        return [MockResult(boxes=mock_boxes, names=self.names)]
+        return [MockResult(boxes=mock_boxes, names=self.names, orig_img=orig_img)]
         
     def _nms(self, boxes, scores, iou_threshold):
         if len(boxes) == 0:
