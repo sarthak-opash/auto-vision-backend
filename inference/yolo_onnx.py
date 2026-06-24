@@ -57,7 +57,13 @@ class YOLOONNX:
         if not providers:
             providers = ["CPUExecutionProvider"]
             
-        self.session = ort.InferenceSession(model_path, providers=providers)
+        # Optimize SessionOptions to limit threads to 1 and prevent CPU starvation in containerized hosts
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.inter_op_num_threads = 1
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            
+        self.session = ort.InferenceSession(model_path, providers=providers, sess_options=opts)
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
         
